@@ -1,0 +1,10 @@
+beat-em-up
+puppets
+brawler
+coop
+local-multiplayer
+singleplayer
+gamepad
+handmade
+html5
+2d
