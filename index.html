@@ -18,9 +18,19 @@
 html,body{margin:0;height:100%;background:#0c0706;overflow:hidden}
 body{display:flex;align-items:center;justify-content:center}
 canvas{display:block;touch-action:none;outline:none}
+#tools{position:fixed;top:max(6px,env(safe-area-inset-top));right:max(6px,env(safe-area-inset-right));display:flex;gap:6px;z-index:2}
+#tools button{min-width:34px;height:34px;border:2px solid #c99a3b;border-radius:6px;background:rgba(20,10,6,.72);color:#f3dfb4;font:700 14px/1 Georgia,serif;cursor:pointer;padding:0 8px}
+#tools button:hover{background:#3a1c10}
+#tools button:focus-visible{outline:2px solid #ffe2a0;outline-offset:2px}
+#tools button[hidden]{display:none}
+#tools button[aria-pressed="false"]{opacity:.5}
+#rot{position:fixed;left:0;right:0;bottom:12px;text-align:center;font:italic 14px/1.3 Georgia,serif;color:#ffe2a0;text-shadow:0 1px 2px #000;pointer-events:none;display:none;z-index:2}
+@media (orientation:portrait) and (max-width:700px){#rot{display:block}}
 </style>
 </head>
 <body>
+<div id="tools"><button id="btn-snd" type="button" aria-pressed="true" aria-label="Sonido (M)" title="Sonido (M)">Sonido</button><button id="btn-red" type="button" aria-pressed="false" aria-label="Menos temblor y destellos (T)" title="Menos temblor y destellos (T)">Calma</button><button id="btn-fs" type="button" aria-label="Pantalla completa (F)" title="Pantalla completa (F)" hidden>Pantalla</button></div>
+<div id="rot">Gira el móvil para ver el escenario completo</div>
 <canvas id="c" tabindex="0" aria-label="Hilo Cortado, beat 'em up de marionetas"></canvas>
 <script>
 'use strict';
@@ -83,7 +93,7 @@ const Input = {
       this.keys.add(e.code); Snd.unlock(); Game.key(e.code);
     });
     addEventListener('keyup', e => this.keys.delete(e.code));
-    addEventListener('blur', () => this.keys.clear());
+    addEventListener('blur', () => { this.keys.clear(); if (Game.st === 'play') Game.st = 'paused'; });
     addEventListener('pointerdown', () => Snd.unlock());
   },
   poll() {
@@ -1889,24 +1899,46 @@ function updFX() {
   World.TX = World.TX.filter(t => t.t < t.life);
 }
 
+// ───────── Guardado y ajustes (localStorage, siempre con try/catch) ─────────
+const DIFFS = [{ n: 'Fácil', m: .65, credits: 5 }, { n: 'Normal', m: null, credits: 3 }, { n: 'Difícil', m: 1.2, credits: 2 }];
+const Save = {
+  key: 'hilocortado.v1', d: { diff: 1, sound: true, reduce: null, best: {} },
+  load() { try { const j = JSON.parse(localStorage.getItem(this.key) || 'null'); if (j && typeof j === 'object') { if (j.diff >= 0 && j.diff < DIFFS.length) this.d.diff = j.diff | 0; if (typeof j.sound === 'boolean') this.d.sound = j.sound; if (typeof j.reduce === 'boolean') this.d.reduce = j.reduce; if (j.best && typeof j.best === 'object') this.d.best = j.best; } } catch (e) { } },
+  save() { try { localStorage.setItem(this.key, JSON.stringify(this.d)); } catch (e) { } },
+};
+Save.load();
+
 // ───────── Flujo de partida ─────────
 const Game = {
   st: 'title', T: 0, pads: [new Pad(0), new Pad(1)], players: [], nPlayers: 1, join: [true, false],
   act: null, actIdx: 0, actLen: 4000, cam: { x: 0 }, locked: false, secIdx: 0, waveIdx: 0, queue: [],
   trauma: 0, slow: 0, flashScreen: 0, curtain: 1, curTarget: 1, logs: [], says: [], diff: 1, reduce: false,
-  credits: 3, contT: 0, bigCruceta: null, demo: false, idleT: 0, stT: 0, goT: 0, scene: null, time: 0, invul: false,
+  credits: 3, diffIdx: Save.d.diff, contT: 0, bigCruceta: null, demo: false, idleT: 0, stT: 0, goT: 0, scene: null, time: 0, invul: false,
   key(code) {
-    if (code === 'KeyM') { Snd.on = !Snd.on; if (!Snd.on && Snd.ctx) Snd.ctx.suspend(); else if (Snd.ctx) Snd.ctx.resume(); return; }
-    if (code === 'KeyT') { this.reduce = !this.reduce; return; }
+    if (code === 'KeyM') { this.toggleSound(); return; }
+    if (code === 'KeyT') { this.toggleReduce(); return; }
+    if (code === 'KeyF') { toggleFs(); return; }
     if ((code === 'Escape' || code === 'KeyP') && (this.st === 'play' || this.st === 'paused')) { this.st = this.st === 'play' ? 'paused' : 'play'; Snd.play('ui'); return; }
     if (code === 'KeyQ' && this.st === 'paused') { this.toTitle(); return; }
     if (this.st === 'demo') { this.toTitle(); this.idleT = 0; return; }
     this.idleT = 0;
   },
+  toggleSound() { Snd.on = !Snd.on; if (!Snd.on && Snd.ctx) Snd.ctx.suspend(); else if (Snd.ctx) Snd.ctx.resume(); Save.d.sound = Snd.on; Save.save(); syncTools(); },
+  toggleReduce() { this.reduce = !this.reduce; Save.d.reduce = this.reduce; Save.save(); syncTools(); },
+  cycleDiff(d) { this.diffIdx = (this.diffIdx + DIFFS.length + d) % DIFFS.length; Save.d.diff = this.diffIdx; Save.save(); Snd.play('ui'); },
+  bestKey(np) { return this.diffIdx + '-' + np; },
+  recordBest() {
+    if (this.demo || !this.players.length || this.arena) return;
+    const score = this.players.reduce((a, p) => a + p.score, 0); if (score <= 0) return;
+    const k = this.bestKey(this.players.length), b = Save.d.best[k];
+    const cur = { score, act: this.actIdx + 1, win: this.st === 'ending' };
+    if (!b || cur.score > b.score) { Save.d.best[k] = cur; Save.save(); }
+  },
   shake(a) { this.trauma = Math.min(1, this.trauma + a * .045); },
   log(text, kind) { this.logs.push({ text, kind, t: 0 }); if (this.logs.length > 3) this.logs.shift(); if (TEST) { (this.allLogs || (this.allLogs = [])).push(text); } },
   say(e, text, life) { this.says = this.says.filter(s => s.e !== e); this.says.push({ e, text, t: 0, life: life || 150 }); },
   toTitle() {
+    if (this.st !== 'title') this.recordBest();
     this.st = 'title'; this.stT = 0; this.curtain = 1; this.curTarget = 1; this.demo = false;
     for (const p of this.pads) p.bot = null;
     World.F = []; World.IT = []; World.PR = []; World.PJ = []; World.HZ = []; World.FX = []; World.TX = [];
@@ -1915,7 +1947,8 @@ const Game = {
   newGame(np, opts = {}) {
     rng = mulberry32(opts.seed || ((Date.now() & 0xffff) + 1)); brng = mulberry32((opts.seed || 3) + 7);
     STATS = mkStats(); this.allLogs = [];
-    this.nPlayers = np; this.credits = 3; this.time = 0; this.invul = !!opts.invul; this.diff = opts.diff || (np === 1 ? .9 : 1);
+    const D = DIFFS[this.diffIdx];
+    this.nPlayers = np; this.credits = opts.credits != null ? opts.credits : D.credits; this.time = 0; this.invul = !!opts.invul; this.diff = opts.diff || D.m || (np === 1 ? .9 : 1);
     this.players = [];
     for (let i = 0; i < np; i++) this.players.push(mkPlayer(i, 0, 0));
     this.startAct(opts.act || 0);
@@ -2056,6 +2089,8 @@ const Game = {
     switch (this.st) {
       case 'title':
         this.idleT++;
+        if (P0.hit('left', 0)) this.cycleDiff(-1);
+        if (P0.hit('right', 0)) this.cycleDiff(1);
         if (go1) { this.join[1] = !this.join[1]; Snd.play('ui'); this.idleT = 0; }
         if (go0) { Snd.play('ui'); this.st = 'intro'; this.stT = 0; this.idleT = 0; }
         if (P0.any || P1.any) this.idleT = 0;
@@ -2076,7 +2111,7 @@ const Game = {
         if (this.slow > 0) { this.slow--; if (this.T % 3 === 0) this.simStep(); } else this.simStep();
         if (this.stT === 170) { this.curTarget = 1; Snd.play('curtain'); }
         if (this.stT >= 220) {
-          if (this.actIdx >= ACTS.length - 1) { this.st = 'ending'; this.stT = 0; Music.start('title'); }
+          if (this.actIdx >= ACTS.length - 1) { this.st = 'ending'; this.stT = 0; Music.start('title'); this.recordBest(); }
           else { this.st = 'card'; this.stT = 0; this.startAct(this.actIdx + 1); }
         }
         break;
@@ -2096,7 +2131,7 @@ const Game = {
   },
   lateJoin() {
     const p = mkPlayer(1, this.cam.x + W * .5, 60); this.players.push(p); World.F.push(p); this.nPlayers = 2; this.respawn(p);
-    p.lives = 3; this.diff = 1; Snd.play('ui');
+    p.lives = 3; this.diff = DIFFS[this.diffIdx].m || 1; Snd.play('ui');
   },
 };
 function playerDied(o) {
@@ -2601,10 +2636,14 @@ function drawTitle(g) {
     g.save(); g.translate(gx, 0); g.rotate(-.35); drawWeapon(g, 'tijeras', [0, -16], 0, 1, t, 1); g.restore();
   });
   g.textAlign = 'center'; g.font = `italic 17px ${SERIF}`; g.fillStyle = '#e9d6ae'; g.fillText('un beat ’em up de marionetas', W / 2, 250);
-  g.fillStyle = 'rgba(0,0,0,.45)'; g.fillRect(150, 274, W - 300, 186);
+  g.fillStyle = 'rgba(0,0,0,.45)'; g.fillRect(150, 274, W - 300, 214);
   g.font = `bold 18px ${SERIF}`; g.fillStyle = (t >> 5) % 2 ? '#ffe2a0' : '#f3dfb4'; g.fillText(Touch.on ? 'Toca la pantalla para empezar' : 'Pulsa J (o X en el mando) para empezar', W / 2, 302);
   g.font = `15px ${SERIF}`; g.fillStyle = Game.join[1] ? '#8fd8c8' : '#cdbb98';
   g.fillText(Game.join[1] ? 'Jugador 2 listo: Bramante también sale a escena' : 'Jugador 2: pulsa  ,  o el mando 2 para unirte', W / 2, 328);
+  const D = DIFFS[Game.diffIdx], bk = Save.d.best[Game.bestKey(Game.join[1] ? 2 : 1)];
+  g.font = `bold 15px ${SERIF}`; g.fillStyle = '#ffe2a0'; g.fillText('◄  Dificultad: ' + D.n + '  ►', W / 2, 352);
+  g.font = `12px ${SERIF}`; g.fillStyle = '#cdbb98';
+  g.fillText((Touch.on ? 'Toca la dificultad para cambiarla' : 'Izquierda / derecha para cambiarla') + ' · ' + D.credits + ' intentos extra' + (bk ? ' · Mejor: ' + bk.score + (bk.win ? ' (final)' : ' (acto ' + ['I', 'II', 'III'][bk.act - 1] + ')') : ''), W / 2, 369);
   g.font = `13px ${SERIF}`; g.fillStyle = '#d8c6a0';
   const L = [
     'J1  mover WASD · golpe J · salto K · agarre L · molinete I (o J+K)',
@@ -2612,10 +2651,10 @@ function drawTitle(g) {
     'Mando  stick · X golpe · A salto · B agarre · Y molinete · Start pausa',
     'Agarra con L: pulsa otra vez para lanzar, J para rodillazos, mantén L para voltearlo como un mangual.',
     'Cada golpe gasta un hilo. Corta los de los brazos para desarmar y el de la cabeza para tumbar.',
-    'M sonido · T menos temblor · Esc pausa',
+    'M sonido · T menos temblor · F pantalla completa · Esc pausa',
   ];
-  L.forEach((l, i) => g.fillText(l, W / 2, 356 + i * 17));
-  g.font = `12px ${SERIF}`; g.fillStyle = '#a89878'; g.fillText('Iván Brihuega · Ivanchux · 2026', W / 2, 486);
+  L.forEach((l, i) => g.fillText(l, W / 2, 392 + i * 17));
+  g.font = `12px ${SERIF}`; g.fillStyle = '#a89878'; g.fillText('Iván Brihuega · Ivanchux · 2026', W / 2, 510);
 }
 function drawPause(g) {
   g.fillStyle = 'rgba(8,4,2,.7)'; g.fillRect(0, 0, W, H);
@@ -2663,6 +2702,7 @@ const Touch = {
       if (e.pointerType !== 'touch') return;
       this.on = true; Snd.unlock(); e.preventDefault();
       const [x, y] = pos(e), inGame = Game.st === 'play' || Game.st === 'paused';
+      if (Game.st === 'title' && y > 336 && y < 376 && Math.abs(x - W / 2) < 230) { Game.cycleDiff(x < W / 2 ? -1 : 1); return; }
       this.ptr.set(e.pointerId, { x, y, ox: x, oy: y, kind: !inGame ? 'tap' : (y < 76 && Math.abs(x - W / 2) < 70) ? 'pause' : x < W * .45 ? 'stick' : 'btn' });
       if (Game.st === 'demo') Game.key('Touch');
       this.update();
@@ -2696,6 +2736,28 @@ const Touch = {
     g.restore();
   },
 };
+
+// ───────── Botones de sonido, calma y pantalla completa (también dentro de un iframe, como en itch.io) ─────────
+const fsRoot = document.documentElement;
+function fsEl() { return document.fullscreenElement || document.webkitFullscreenElement || null; }
+function fsCan() { try { return !!((document.fullscreenEnabled || document.webkitFullscreenEnabled) && (fsRoot.requestFullscreen || fsRoot.webkitRequestFullscreen)); } catch (e) { return false; } }
+function toggleFs() {
+  if (!fsCan()) return;
+  try { if (fsEl()) (document.exitFullscreen || document.webkitExitFullscreen).call(document); else { const r = (fsRoot.requestFullscreen || fsRoot.webkitRequestFullscreen).call(fsRoot); if (r && r.catch) r.catch(() => { }); } } catch (e) { }
+}
+function syncTools() {
+  const a = document.getElementById('btn-snd'), b = document.getElementById('btn-red'), f = document.getElementById('btn-fs');
+  if (a) { a.setAttribute('aria-pressed', String(!!Snd.on)); a.textContent = Snd.on ? 'Sonido' : 'Sin sonido'; }
+  if (b) b.setAttribute('aria-pressed', String(!!Game.reduce));
+  if (f) f.hidden = !fsCan();
+}
+document.getElementById('btn-snd').addEventListener('click', e => { Game.toggleSound(); e.currentTarget.blur(); });
+document.getElementById('btn-red').addEventListener('click', e => { Game.toggleReduce(); e.currentTarget.blur(); });
+document.getElementById('btn-fs').addEventListener('click', e => { toggleFs(); e.currentTarget.blur(); });
+['fullscreenchange', 'webkitfullscreenchange'].forEach(ev => document.addEventListener(ev, () => { syncTools(); if (!TEST) resize(); }));
+Snd.on = Save.d.sound;
+{ let pr = false; try { pr = matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { } Game.reduce = Save.d.reduce != null ? Save.d.reduce : pr; }
+syncTools();
 
 // ───────── Arranque ─────────
 prerender();

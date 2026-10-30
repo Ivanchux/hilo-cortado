@@ -1,0 +1,6 @@
+Tipo de proyecto: HTML
+Archivo: subir hilo-cortado-html5.zip y marcar "This file will be played in the browser".
+Tamaño del visor: 960 x 540 (16:9; el juego se escala a otros tamaños).
+Botón de pantalla completa: activado.
+Compatible con móvil: sí, pero se juega mucho mejor en horizontal (en vertical aparece un aviso). Marcar "Mobile friendly": sí.
+Almacenamiento: usa localStorage para mejores marcas y ajustes y funciona igual si el navegador lo bloquea.

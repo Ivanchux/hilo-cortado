@@ -31,6 +31,7 @@ Hilo Cortado es un juego de navegador de peleas de avance lateral para uno o dos
 - Funciona con **teclado, mando y pantalla táctil**.
 - **Cooperativo local:** el jugador 2 entra en cualquier momento pulsando su botón de golpe.
 - Tres actos, tres jefes y armas que se recogen y se rompen.
+- **Tres dificultades** (Fácil, Normal y Difícil), con mejores marcas guardadas en el navegador por dificultad y número de jugadores.
 
 ## 📸 Capturas
 
@@ -87,7 +88,7 @@ Los personajes no tienen sprites. Son marionetas de piezas recortadas cuyas pose
 | Molinete | I (o J + K) | ´ (o Numpad 5) | Y / Triángulo |
 | Pausa | Esc o P | | Start |
 
-El jugador 2 entra en cualquier momento pulsando su botón de golpe. M quita el sonido y T reduce el temblor de pantalla y los destellos. En pantallas táctiles aparece una palanca a la izquierda y cuatro botones a la derecha (solo jugador 1).
+El jugador 2 entra en cualquier momento pulsando su botón de golpe. M quita el sonido, T reduce el temblor de pantalla y los destellos (se activa sola si el sistema pide reducir movimiento) y F pone la pantalla completa; los tres también tienen botón arriba a la derecha. En el título, izquierda y derecha (o tocar la línea de dificultad) cambian la dificultad. Si pierdes el foco de la ventana, el juego se pausa. En pantallas táctiles aparece una palanca a la izquierda y cuatro botones a la derecha (solo jugador 1).
 
 **Golpes.** Cuatro golpes seguidos: directo, cruzado, patada baja y cabezazo que derriba. La patada y el cabezazo solo salen si el golpe anterior ha entrado. Golpe con la dirección contraria: codazo hacia atrás. Doble toque de dirección para correr y golpe en carrera para el hombrazo. Golpe en el aire: patada voladora. El molinete gira la marioneta sobre sus hilos y golpea alrededor a cambio de un poco del hilo de la cabeza.
 
@@ -155,6 +156,24 @@ cd hilo-cortado
 python3 -m http.server 8000   # http://localhost:8000
 ```
 
+### Dificultad
+
+| Dificultad | Daño que recibes | Intentos extra |
+|---|:-:|:-:|
+| Fácil | ×0,65 | 5 |
+| Normal | ×0,9 (1 jugador) o ×1 (2 jugadores) | 3 |
+| Difícil | ×1,2 | 2 |
+
+Con el mismo bot de pruebas (1 jugador, 3 semillas por dificultad), en Fácil las tres partidas llegaron al final y en Normal y Difícil ninguna lo hizo con los intentos que da cada una. Un bot juega peor que una persona, así que sirve para comparar dificultades entre sí, no para decir cuál es la justa.
+
+### Paquete para itch.io
+
+```bash
+node tools/build-dist.mjs
+```
+
+Crea `dist/` y `hilo-cortado-html5.zip` (unos 60 KB). Los textos, la portada y la guía de subida están en [`itch/`](itch/). El script se detiene si encuentra direcciones externas.
+
 ### Publicar en GitHub Pages
 
 1. Sube el repositorio a GitHub.
@@ -177,6 +196,7 @@ python3 -m http.server 8000   # http://localhost:8000
 En Chromium sin interfaz, con Playwright:
 
 - 21 pruebas guiadas de mecánicas: combo de cuatro golpes, agarre, rodillazos, lanzamiento contra otro enemigo, mangual con varios impactos, mozo que no se deja agarrar, recoger tijeras y cortar, desarmar y recoger la alabarda caída, mazo lanzado, molinete, patada voladora, codazo, hombrazo, vela que quema hilos, agarre automático al mareado, agarre del mozo y escape machacando botones.
+- Dificultad y guardado (`test/parches.js`, 21 comprobaciones en Chromium): el selector con teclado y con toque, daño e intentos de cada dificultad, mejor marca por dificultad y jugadores (una peor no sustituye a la mejor), sonido y calma recordados al recargar, pantalla completa con botón y con `F`, pausa al perder el foco, el juego dentro de un iframe con `localStorage` bloqueado y el aviso de girar el móvil en vertical.
 - 6 partidas completas de los tres actos con bots. A dos jugadores, las tres llegan al final con dos continuaciones en unos 16 minutos. A un jugador tardan entre 19 y 24 minutos y necesitan de tres a cinco continuaciones: con las tres que da el juego, solo una de las tres partidas llega al final.
 - 40 combates de un minuto con los cinco tipos de enemigo: 7 092 golpes, 1 845 hilos cortados, 539 marionetas tumbadas, ningún ataque sin turno, nunca más atacantes que turnos, sin valores NaN ni marionetas atascadas.
 - La simulación es determinista con la misma semilla.
@@ -189,6 +209,9 @@ En Chromium sin interfaz, con Playwright:
 ```text
 hilo-cortado/
 ├── index.html        # El juego completo (HTML + CSS + JS)
+├── test/             # Pruebas en Chromium (node test/parches.js)
+├── tools/            # build-dist.mjs: genera dist/ y el .zip para itch.io
+├── itch/             # Textos, portada, capturas y guía de subida
 ├── capturas/         # Banner, capturas y GIFs de este README
 ├── CHANGELOG.md      # Historial de versiones
 ├── LICENSE           # PolyForm Noncommercial 1.0.0
@@ -199,7 +222,7 @@ hilo-cortado/
 
 - [ ] Probar con mandos reales, Firefox, Safari y móviles
 - [ ] Ajustar la dificultad jugando con personas
-- [ ] Guardar récords en el navegador
+- [ ] Control táctil para el jugador 2
 
 ## 📜 Licencia
 

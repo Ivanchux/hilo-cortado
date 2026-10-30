@@ -1,0 +1,6 @@
+Jugador 1: mover WASD · golpe J · salto K · agarre L · molinete I (o J+K).
+Jugador 2: mover flechas · golpe , · salto . · agarre - · molinete ´ (o Numpad 5). Entra pulsando su botón de golpe.
+Mando: stick o cruceta · X o Cuadrado golpe · A o Cruz salto · B o Círculo agarre (o RB/RT) · Y o Triángulo molinete · Start pausa.
+Pantalla táctil (jugador 1): palanca a la izquierda y botones a la derecha.
+En el título: izquierda/derecha cambia la dificultad.
+Esc o P: pausa. M: silencio. T: menos temblor. F: pantalla completa.
