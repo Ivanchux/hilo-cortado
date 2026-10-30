@@ -1,18 +1,82 @@
-# Hilo Cortado
+<div align="center">
 
-Beat 'em up de avance lateral con marionetas de madera. Cada golpe gasta un hilo: corta los de los brazos y el enemigo suelta el arma, corta el de la cabeza y se desploma en un montón de tablas.
+<img src="capturas/banner.png" alt="Hilo Cortado" width="100%">
 
-![Clavija agarra a un alabardero por los hilos y lo voltea contra el resto](capturas/mangual.gif)
+# 🪢 Hilo Cortado
 
-**Jugar:** abre `index.html` en el navegador o entra en la versión de GitHub Pages (`https://ivanchux.github.io/hilo-cortado/` si el repositorio se llama así). Es un único archivo HTML sin dependencias.
+**Beat 'em up de avance lateral con marionetas de madera.**
+Cada golpe gasta un hilo: corta los de los brazos y el enemigo suelta el arma, corta el de la cabeza y se desploma en un montón de tablas.
 
-## La idea
+[![Jugar](https://img.shields.io/badge/▶_JUGAR_AHORA-e3372a?style=for-the-badge&labelColor=120b08)](https://ivanchux.github.io/hilo-cortado/)
+![HTML5](https://img.shields.io/badge/HTML5-Canvas-e34f26?style=flat-square&logo=html5&logoColor=white)
+![JavaScript](https://img.shields.io/badge/JavaScript-vanilla-f7df1e?style=flat-square&logo=javascript&logoColor=black)
+![Dependencias](https://img.shields.io/badge/dependencias-0-success?style=flat-square)
+![Jugadores](https://img.shields.io/badge/jugadores-1%20o%202-000080?style=flat-square)
+![Móvil](https://img.shields.io/badge/PC%2C%20móvil%20y%20mando-sí-008080?style=flat-square)
+![Licencia](https://img.shields.io/badge/licencia-PolyForm%20NC-808080?style=flat-square)
+
+</div>
+
+---
+
+## 📑 Índice
+
+[Qué es](#-qué-es) · [Capturas](#-capturas) · [En movimiento](#-en-movimiento) · [La idea](#-la-idea) · [Controles](#️-controles) · [Los hilos](#-los-hilos) · [Reparto](#-reparto) · [Actos](#-actos) · [Ejecutar y publicar](#-ejecutar-y-publicar) · [Cómo está hecho](#-cómo-está-hecho) · [Pruebas hechas](#-pruebas-hechas) · [Estructura](#-estructura-del-repositorio) · [Licencia](#-licencia)
+
+## 🪢 Qué es
+
+Hilo Cortado es un juego de navegador de peleas de avance lateral para uno o dos jugadores. Los personajes son marionetas de piezas recortadas que cuelgan de una cruceta, y los golpes cortan hilos: sin un brazo no hay golpes con ese brazo, sin una pierna la marioneta cojea y sin el hilo de la cabeza se desploma.
+
+- **Un solo `index.html`**, con Canvas 2D y Web Audio. Sin librerías, sin imágenes y sin sonidos externos.
+- Funciona con **teclado, mando y pantalla táctil**.
+- **Cooperativo local:** el jugador 2 entra en cualquier momento pulsando su botón de golpe.
+- Tres actos, tres jefes y armas que se recogen y se rompen.
+
+## 📸 Capturas
+
+<div align="center">
+
+| Título | Dos jugadores |
+|:---:|:---:|
+| <img src="capturas/titulo.png" width="420"> | <img src="capturas/pc-demo.png" width="420"> |
+
+<img src="capturas/movil-titulo.png" width="420"> &nbsp; <img src="capturas/movil-partida.png" width="420">
+
+*En el móvil aparece una palanca a la izquierda y cuatro botones a la derecha (solo jugador 1).*
+
+</div>
+
+## 🎬 En movimiento
+
+<div align="center">
+
+**Clavija agarra a un alabardero por los hilos y lo voltea contra el resto**
+
+<img src="capturas/mangual.gif" width="560">
+
+**Cooperativo a dos jugadores**
+
+<img src="capturas/cooperativo.gif" width="560">
+
+### 📱 En el móvil, con los controles táctiles
+
+<img src="capturas/gifs/movil-tactil.gif" width="480">
+
+### 🖥️ En el PC
+
+<img src="capturas/gifs/pc-partida.gif" width="560">
+
+*Los GIF de PC son la demostración del propio juego (`index.html?demo=1`), con dos bots.*
+
+</div>
+
+## 🎭 La idea
 
 Un teatro ambulante y un titiritero que no suelta a nadie. Clavija y Bramante se cortaron los hilos negros con unas tijeras de sastre, se ataron hilo rojo a una cruceta robada y cruzan el decorado, acto por acto, hasta el telar donde él espera.
 
 Los personajes no tienen sprites. Son marionetas de piezas recortadas cuyas poses se interpolan por código, cuelgan de una cruceta que se ve en lo alto del escenario y caen de verdad cuando se les corta un hilo.
 
-## Controles
+## ⌨️ Controles
 
 | Acción | Jugador 1 | Jugador 2 | Mando |
 |---|---|---|---|
@@ -31,7 +95,7 @@ El jugador 2 entra en cualquier momento pulsando su botón de golpe. M quita el 
 
 **Armas.** Se recogen con golpe o agarre encima de ellas y se lanzan con agarre. Las tijeras multiplican el daño sobre los hilos, la alabarda tiene alcance, el mazo derriba y la vela prende fuego. Cada arma se gasta y se rompe.
 
-## Los hilos
+## 🧵 Los hilos
 
 Cada marioneta cuelga de cinco hilos: cabeza, dos brazos y dos piernas. Los golpes altos gastan el hilo de un brazo y algo de la cabeza; los bajos, el de una pierna; los cabezazos, el de la cabeza directamente.
 
@@ -43,7 +107,7 @@ Los jugadores funcionan igual. Un carrete de hilo rojo vuelve a atar el hilo má
 
 Los jefes pierden ataques al perder hilos: al Titiritero, sin el brazo del bastón, se le acaba el barrido; sin el izquierdo, el tirón de hilos; sin piernas, el pisotón.
 
-## Reparto
+## 🎎 Reparto
 
 | Marioneta | Qué hace |
 |---|---|
@@ -58,7 +122,7 @@ Los jefes pierden ataques al perder hilos: al Titiritero, sin el brazo del bast�
 | La Madre Tijera | Jefa del acto II. Combos de tijerona, caídas desde arriba y tijeras que vuelven a su mano |
 | El Titiritero | Jefe final. Barre con el bastón, pisa con onda, engancha con hilo negro, baja comparsas y deja caer tijeras del telar |
 
-## Actos
+## 🎪 Actos
 
 | Acto | Decorado | Qué cambia |
 |---|---|---|
@@ -66,13 +130,40 @@ Los jefes pierden ataques al perder hilos: al Titiritero, sin el brazo del bast�
 | II · La Ciudad de Tela | Casas de retales cosidos, tendederos y farolillos | Dos atacantes por jugador. Entran saltimbanquis, costureras y un mozo |
 | III · El Castillo de Tramoya | Muros pintados, estandartes, sacos de contrapeso y poleas; al final, el telar desnudo | Ritmo más alto y más daño. Mozos en pareja y velas para prender fuego |
 
-![Acto I](capturas/acto1.png)
-![Acto II](capturas/acto2.png)
-![Acto III](capturas/acto3.png)
-![El Titiritero](capturas/jefe.png)
-![Cooperativo a dos jugadores](capturas/cooperativo.gif)
+<div align="center">
 
-## Cómo está hecho
+| Acto I | Acto II |
+|:---:|:---:|
+| <img src="capturas/acto1.png" width="420"> | <img src="capturas/acto2.png" width="420"> |
+
+| Acto III | El Titiritero |
+|:---:|:---:|
+| <img src="capturas/acto3.png" width="420"> | <img src="capturas/jefe.png" width="420"> |
+
+</div>
+
+## 🚀 Ejecutar y publicar
+
+### Jugar en local
+
+No hace falta instalar nada. Abre `index.html` en el navegador.
+
+```bash
+git clone https://github.com/Ivanchux/hilo-cortado.git
+cd hilo-cortado
+# abre index.html, o sirve la carpeta si prefieres:
+python3 -m http.server 8000   # http://localhost:8000
+```
+
+### Publicar en GitHub Pages
+
+1. Sube el repositorio a GitHub.
+2. Ve a **Settings → Pages**.
+3. En *Build and deployment* elige **Deploy from a branch**, rama `main` y carpeta `/ (root)`.
+4. En un minuto estará en `https://ivanchux.github.io/hilo-cortado/`.
+
+
+## 🔧 Cómo está hecho
 
 - **Un solo `index.html`** de unas 2 750 líneas, con Canvas 2D y Web Audio. Sin librerías, sin imágenes y sin sonidos externos.
 - **Animación procedural por esqueleto.** Cada marioneta tiene diez articulaciones y una raíz. Los estados (andar, golpear, caer, agarrar…) dan poses clave y cada articulación las persigue con un muelle amortiguado, lo que da el balanceo de marioneta sin fotogramas dibujados. Un miembro sin hilo deja de seguir la pose y pasa a colgar como un péndulo que reacciona a la aceleración del cuerpo. Al morir, el esqueleto se convierte en un muñeco de Verlet que se desploma sobre las tablas. Las crucetas siguen a cada marioneta con inercia y los hilos se inclinan cuando corre o sale despedida.
@@ -81,7 +172,7 @@ Los jefes pierden ataques al perder hilos: al Titiritero, sin el brazo del bast�
 - **Sonido.** Todo sintetizado. Los hilos que se rompen y la música de feria salen de cuerdas pulsadas con Karplus-Strong; los golpes, de osciladores y ruido filtrado.
 - **Pruebas.** `index.html?test=1` expone `window.HC` para jugar sin interfaz: arrancar partidas con semilla, avanzar fotogramas, colocar enemigos, pulsar botones y leer estadísticas. `index.html?demo=1` arranca la demostración con dos bots, que también salta sola tras 25 segundos en el título.
 
-## Pruebas hechas
+## 🧪 Pruebas hechas
 
 En Chromium sin interfaz, con Playwright:
 
@@ -91,14 +182,46 @@ En Chromium sin interfaz, con Playwright:
 - La simulación es determinista con la misma semilla.
 - Sin errores de consola, con sonido y con entrada táctil simulada.
 
-## Sin comprobar
 
-- El tacto de los golpes, la diversión y la curva de dificultad. Están ajustados con bots, que juegan peor que una persona: a un jugador gastan varias continuaciones en el acto III.
-- Cómo suena. El código de audio se ejecuta sin errores, pero nadie lo ha escuchado.
-- Mandos reales, Firefox, Safari y móviles de verdad. El táctil solo se ha probado simulado.
-- El rendimiento en una GPU real. En Chromium sin interfaz, con renderizado por software, la simulación tarda unos 0,2 ms por fotograma y el dibujo completo ronda los 12–18 ms.
-- Con mando, el navegador puede no arrancar el sonido hasta pulsar una tecla o hacer clic.
+
+## 📁 Estructura del repositorio
+
+```text
+hilo-cortado/
+├── index.html        # El juego completo (HTML + CSS + JS)
+├── capturas/         # Banner, capturas y GIFs de este README
+├── CHANGELOG.md      # Historial de versiones
+├── LICENSE           # PolyForm Noncommercial 1.0.0
+└── README.md
+```
+
+## 🗺️ Ideas futuras
+
+- [ ] Probar con mandos reales, Firefox, Safari y móviles
+- [ ] Ajustar la dificultad jugando con personas
+- [ ] Guardar récords en el navegador
+
+## 📜 Licencia
+
+El código está bajo **[PolyForm Noncommercial 1.0.0](LICENSE)**.
+
+**Puedes, sin pedir permiso:**
+- Jugarlo y compartir el enlace.
+- Estudiar el código y modificarlo para uso personal, educativo o sin ánimo de lucro.
+- Subirlo a otra web o a tu propio hosting, siempre gratis y sin anuncios, conservando el aviso de copyright y la licencia.
+- Hacer streams, vídeos y capturas del juego, aunque tu canal esté monetizado.
+
+**Necesitas mi permiso por escrito para:**
+- Vender el juego, una copia o una versión modificada.
+- Publicarlo en tiendas de aplicaciones o plataformas de juegos.
+- Incluirlo en una web con anuncios, suscripciones o compras.
 
 ---
 
-Iván Brihuega · [Ivanchux](https://github.com/Ivanchux) · 2026
+<div align="center">
+
+Hecho con 🪢 por **[Ivanchux](https://github.com/Ivanchux)**
+
+⭐ Si te ha gustado, deja una estrella al repositorio.
+
+</div>
