@@ -252,6 +252,55 @@ const Music = {
   },
 };
 
+// ───────── Arte ilustrado (img/) con respaldo: si una imagen no carga, se dibuja lo de siempre por código ─────────
+const ART = { img: {}, ok: {}, gray: {} };
+const ART_FILES = ['fondo_bosque.jpg', 'fondo_ciudad.jpg', 'fondo_castillo.jpg', 'fondo_telar.jpg', 'marco.png', 'textura_madera.jpg', 'textura_tela.jpg']
+  .concat(['clavija', 'bramante', 'comparsa', 'alabardero', 'saltimbanqui', 'costurera', 'mozo', 'titiritero'].map(n => 'cara_' + n + '.png'));
+// cara de cada marioneta: cx, cy = centro de la cara en la imagen (fracción) y fh = alto de la cara (fracción del alto de la imagen)
+const HEADART = {
+  clavija: { cx: .52, cy: .64, fh: .60 }, bramante: { cx: .55, cy: .66, fh: .57 }, comparsa: { cx: .55, cy: .70, fh: .56 }, alabardero: { cx: .60, cy: .67, fh: .58 },
+  saltimbanqui: { cx: .55, cy: .74, fh: .48 }, costurera: { cx: .58, cy: .67, fh: .58 }, mozo: { cx: .50, cy: .60, fh: .62 }, titiritero: { cx: .55, cy: .66, fh: .60 },
+};
+function artLoad() {
+  for (const f of ART_FILES) {
+    const name = f.replace(/\.(png|jpg)$/, ''), im = new Image();
+    im.onload = () => { ART.ok[name] = true; if (name.startsWith('textura_')) artGray(name.slice(8)); if (typeof C !== 'undefined' && C && (name === 'marco' || name.startsWith('textura_'))) prerender(); };
+    im.onerror = () => { ART.ok[name] = false; };
+    im.src = 'img/' + f; ART.img[name] = im;
+  }
+}
+// textura en gris centrado en 128 (para teñirla con overlay sin cambiar el tono ni el brillo medio del color)
+function artGray(kind) {
+  const k = kind === 'madera' ? 'w' : 'c', c = document.createElement('canvas'); c.width = c.height = 96; const x = c.getContext('2d');
+  x.drawImage(ART.img['textura_' + kind], 0, 0, 96, 96);
+  x.globalCompositeOperation = 'saturation'; x.fillStyle = '#808080'; x.fillRect(0, 0, 96, 96);
+  x.globalCompositeOperation = 'multiply'; x.fillStyle = k === 'w' ? '#ababab' : '#a3a3a3'; x.fillRect(0, 0, 96, 96);
+  ART.gray[k] = c;
+}
+const TEXC = {};
+function texFill(g, kind, col) {   // kind: 'w' madera, 'c' tela. Devuelve un patrón teñido con col, o col si no hay textura
+  const im = ART.gray[kind]; if (!im || !kind) return col;
+  const key = kind + col; let p = TEXC[key];
+  if (!p) {
+    const c = document.createElement('canvas'); c.width = c.height = 96; const x = c.getContext('2d');
+    x.fillStyle = col; x.fillRect(0, 0, 96, 96); x.globalCompositeOperation = 'overlay'; x.globalAlpha = kind === 'w' ? .8 : .65; x.drawImage(im, 0, 0);
+    p = g.createPattern(c, 'repeat'); TEXC[key] = p;
+  }
+  return p;
+}
+// la cara teñida para el destello (blanco) y el quemado
+const HEADV = {};
+function headSprite(look, pal) {
+  const key = look.hk, im = ART.img['cara_' + key]; if (!key || !HEADART[key] || !ART.ok['cara_' + key]) return null;
+  const v = pal === WHITE_PAL ? 'f' : pal === BURN_PAL ? 'b' : ''; if (!v) return im;
+  const id = key + v; let c = HEADV[id];
+  if (!c) {
+    c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight; const x = c.getContext('2d'); x.drawImage(im, 0, 0);
+    x.globalCompositeOperation = 'source-atop'; x.fillStyle = v === 'f' ? '#fff3dc' : 'rgba(34,22,16,.74)'; x.fillRect(0, 0, c.width, c.height); HEADV[id] = c;   // solo sobre lo ya dibujado: nada de rectángulos
+  }
+  return c;
+}
+
 // ───────── Esqueleto, poses y dibujo de marionetas ─────────
 // Ángulos medidos desde la vertical hacia abajo; positivo = hacia donde mira la marioneta.
 // Brazos relativos al torso, piernas relativas al mundo. F = lado cercano (derecho), B = lado lejano.
@@ -368,7 +417,7 @@ function mkPal(L) {
     apron: L.apron, stripe: L.stripe, sash: L.sash, cape: L.cape, eye: L.eye, cheek: L.cheek, peg: shade(L.wood, .55),
   };
 }
-for (const k in LOOKS) LOOKS[k].pal = mkPal(LOOKS[k]);
+for (const k in LOOKS) { LOOKS[k].pal = mkPal(LOOKS[k]); LOOKS[k].hk = k; }
 const WHITE_PAL = (() => { const p = {}; for (const k in LOOKS.comparsa.pal) p[k] = '#fff3dc'; p.edge = '#e8d2b0'; p.eye = '#fff3dc'; return p; })();
 const BURN_PAL = (() => { const p = mkPal({ wood: '#3a2418', shirt: '#2a1a14', pants: '#22140e', boots: '#140a06', hatC: '#24160e', apron: '#3a2418', stripe: '#1a0e08', sash: '#3a2418', cape: '#140a06', eye: '#ff9a3a', cheek: '#5a2a18' }); return p; })();
 
@@ -403,10 +452,10 @@ function fk(b, p, f) {
   return o;
 }
 
-function stick(g, a, b, w, col, edge) {
+function stick(g, a, b, w, col, edge, tex) {
   g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]);
   g.strokeStyle = edge; g.lineWidth = w + 2.4; g.stroke();
-  g.strokeStyle = col; g.lineWidth = w; g.stroke();
+  g.strokeStyle = tex ? texFill(g, tex, col) : col; g.lineWidth = w; g.stroke();
 }
 function dot(g, p, r, col) { g.fillStyle = col; g.beginPath(); g.arc(p[0], p[1], r, 0, TAU); g.fill(); }
 function foot(g, k, a, f, len, h, col, edge) {
@@ -475,6 +524,11 @@ function drawHat(g, kind, r, pal, t, e) {
 function drawHead(g, k, b, pal, look, f, e) {
   const r = b.hr, a = k.ha * f + k.rot;
   g.save(); g.translate(k.hc[0], k.hc[1]); g.rotate(a); g.scale(f, 1);
+  const hs = headSprite(look, pal);
+  if (hs) {   // cara ilustrada: la cara ocupa lo mismo que la elipse de antes y el sombrero va incluido
+    const H = HEADART[look.hk], sc = (r * 2.16) / (H.fh * hs.height), w = hs.width * sc, h = hs.height * sc;
+    g.drawImage(hs, -H.cx * w, -H.cy * h, w, h); g.restore(); return;
+  }
   g.fillStyle = pal.wood; g.strokeStyle = pal.edge; g.lineWidth = 1.6;
   g.beginPath(); g.ellipse(0, 0, r * .96, r * 1.08, 0, 0, TAU); g.fill(); g.stroke();
   if (look.mask) {
@@ -494,7 +548,7 @@ function drawHead(g, k, b, pal, look, f, e) {
   g.restore();
 }
 
-function drawTorso(g, k, b, pal, look, f) {
+function drawTorso(g, k, b, pal, look, f, tc) {
   const [hx, hy] = k.hip, [nx, ny] = k.neck;
   const ux = nx - hx, uy = ny - hy, L = Math.hypot(ux, uy) || 1, ex = ux / L, ey = uy / L;
   const vx = -ey * f, vy = ex * f; // perpendicular hacia delante
@@ -502,11 +556,11 @@ function drawTorso(g, k, b, pal, look, f) {
   g.lineWidth = 1.6; g.strokeStyle = pal.shirtE || pal.edge;
   if (look.skirt) {
     const d = look.skirt === 2 ? .8 : .5;
-    g.fillStyle = pal.shirtD;
+    g.fillStyle = texFill(g, tc, pal.shirtD);
     g.beginPath(); g.moveTo(hx + vx * wt, hy + vy * wt); g.lineTo(hx - ex * L * d + vx * wt * 1.6, hy - ey * L * d + vy * wt * 1.6);
     g.lineTo(hx - ex * L * d - vx * wt * 1.6, hy - ey * L * d - vy * wt * 1.6); g.lineTo(hx - vx * wt, hy - vy * wt); g.closePath(); g.fill(); g.stroke();
   }
-  g.fillStyle = pal.shirt;
+  g.fillStyle = texFill(g, tc, pal.shirt);
   g.beginPath(); g.moveTo(hx + vx * wt, hy + vy * wt); g.quadraticCurveTo(hx + ux * .55 + vx * ws * 1.25, hy + uy * .55 + vy * ws * 1.25, nx + vx * ws * .8, ny + vy * ws * .8);
   g.lineTo(nx - vx * ws, ny - vy * ws); g.lineTo(hx - vx * wt, hy - vy * wt); g.closePath(); g.fill(); g.stroke();
   if (pal.stripe) { g.strokeStyle = pal.stripe; g.lineWidth = 2.4; for (let i = 1; i < 4; i++) { const t = i / 4; g.beginPath(); g.moveTo(hx + ux * t + vx * wt * 1.1, hy + uy * t + vy * wt * 1.1); g.lineTo(hx + ux * t - vx * wt, hy + uy * t - vy * wt); g.stroke(); } }
@@ -630,6 +684,7 @@ function drawPuppet(g, e, X, Y, S, camX) {
   const b = e.body, look = e.look, f = e.facing;
   const pal = e.flash > 0 ? WHITE_PAL : (e.charT > 0 ? BURN_PAL : look.pal);
   const k = fk(b, e.pose, f); e.kin = k;
+  const tw = pal === WHITE_PAL ? null : 'w', tc = pal === WHITE_PAL ? null : 'c';   // sin textura durante el destello
   // capa del titiritero (detrás)
   if (look.cape) {
     const nk = [X + k.neck[0] * S, Y + k.neck[1] * S];
@@ -642,19 +697,19 @@ function drawPuppet(g, e, X, Y, S, camX) {
   g.save(); g.translate(X + (e.shk || 0), Y); g.scale(S, S); g.lineCap = 'round'; g.lineJoin = 'round';
   const armB = e.hp[2].cut, legF = e.hp[3].cut;
   // brazo lejano
-  stick(g, k.sh, k.eB, b.wa, pal.shirtD, pal.shirtE || pal.edge);
-  stick(g, k.eB, k.hB, b.wa * .85, pal.woodD, pal.edge); dot(g, k.hB, b.wa * .62, pal.woodD); dot(g, k.eB, b.wa * .32, pal.peg);
+  stick(g, k.sh, k.eB, b.wa, pal.shirtD, pal.shirtE || pal.edge, tc);
+  stick(g, k.eB, k.hB, b.wa * .85, pal.woodD, pal.edge, tw); dot(g, k.hB, b.wa * .62, pal.woodD); dot(g, k.eB, b.wa * .32, pal.peg);
   // pierna lejana
-  stick(g, k.hip, k.kB, b.wl, pal.pantsD, pal.pantsE); stick(g, k.kB, k.fB, b.wl * .78, pal.woodD, pal.edge);
+  stick(g, k.hip, k.kB, b.wl, pal.pantsD, pal.pantsE, tc); stick(g, k.kB, k.fB, b.wl * .78, pal.woodD, pal.edge, tw);
   foot(g, k.fB, k.fBa, f, b.wl * 2.1, b.wl * .9, shade(pal.boots, .8), '#120a06'); dot(g, k.kB, b.wl * .3, pal.peg);
-  drawTorso(g, k, b, pal, look, f);
+  drawTorso(g, k, b, pal, look, f, tc);
   // pierna cercana
-  stick(g, k.hip, k.kF, b.wl, pal.pants, pal.pantsE); stick(g, k.kF, k.fF, b.wl * .78, pal.wood, pal.edge);
+  stick(g, k.hip, k.kF, b.wl, pal.pants, pal.pantsE, tc); stick(g, k.kF, k.fF, b.wl * .78, pal.wood, pal.edge, tw);
   foot(g, k.fF, k.fFa, f, b.wl * 2.1, b.wl * .9, pal.boots, '#120a06'); dot(g, k.kF, b.wl * .32, pal.peg); dot(g, k.hip, b.wl * .35, pal.peg);
   drawHead(g, k, b, pal, look, f, e);
   // brazo cercano y arma
-  stick(g, k.sh, k.eF, b.wa, pal.shirt, pal.shirtE || pal.edge);
-  stick(g, k.eF, k.hF, b.wa * .85, pal.wood, pal.edge); dot(g, k.eF, b.wa * .34, pal.peg); dot(g, k.sh, b.wa * .38, pal.peg);
+  stick(g, k.sh, k.eF, b.wa, pal.shirt, pal.shirtE || pal.edge, tc);
+  stick(g, k.eF, k.hF, b.wa * .85, pal.wood, pal.edge, tw); dot(g, k.eF, b.wa * .34, pal.peg); dot(g, k.sh, b.wa * .38, pal.peg);
   if (e.weapon && !e.hp[1].cut) drawWeapon(g, e.weapon.type, k.hF, k.wa, f, e.t, S);
   dot(g, k.hF, b.wa * .66, pal.wood);
   g.restore();
@@ -676,14 +731,20 @@ function drawRag(g, e, camX) {
   const P = i => [R.p[i][0] - camX, GY(e.z) - R.p[i][1] * DS(e.z)];
   const [hip, neck, head, eF, hF, eB, hB, kF, fF, kB, fB] = R.p.map((_, i) => P(i));
   g.save(); g.lineCap = 'round';
-  const st = (a, c, w, col, ed) => stick(g, a, c, w * s, col, ed);
-  st(neck, eB, b.wa, pal.shirtD, pal.edge); st(eB, hB, b.wa * .85, pal.woodD, pal.edge);
-  st(hip, kB, b.wl, pal.pantsD, pal.edge); st(kB, fB, b.wl * .78, pal.woodD, pal.edge);
-  st(hip, neck, b.wt * 2, pal.shirt, pal.edge);
-  st(hip, kF, b.wl, pal.pants, pal.edge); st(kF, fF, b.wl * .78, pal.wood, pal.edge);
-  g.fillStyle = pal.wood; g.strokeStyle = pal.edge; g.lineWidth = 1.6;
-  g.beginPath(); g.ellipse(head[0], head[1], b.hr * s, b.hr * 1.08 * s, Math.atan2(head[1] - neck[1], head[0] - neck[0]) + Math.PI / 2, 0, TAU); g.fill(); g.stroke();
-  st(neck, eF, b.wa, pal.shirt, pal.edge); st(eF, hF, b.wa * .85, pal.wood, pal.edge);
+  const tw = e.charT > 0 ? null : 'w', tc = e.charT > 0 ? null : 'c', st = (a, c, w, col, ed, tx) => stick(g, a, c, w * s, col, ed, tx);
+  st(neck, eB, b.wa, pal.shirtD, pal.edge, tc); st(eB, hB, b.wa * .85, pal.woodD, pal.edge, tw);
+  st(hip, kB, b.wl, pal.pantsD, pal.edge, tc); st(kB, fB, b.wl * .78, pal.woodD, pal.edge, tw);
+  st(hip, neck, b.wt * 2, pal.shirt, pal.edge, tc);
+  st(hip, kF, b.wl, pal.pants, pal.edge, tc); st(kF, fF, b.wl * .78, pal.wood, pal.edge, tw);
+  const hsp = headSprite(e.look, pal), hang = Math.atan2(head[1] - neck[1], head[0] - neck[0]) + Math.PI / 2;
+  if (hsp) {
+    const H = HEADART[e.look.hk], sc = (b.hr * s * 2.16) / (H.fh * hsp.height), w = hsp.width * sc, h = hsp.height * sc;
+    g.save(); g.translate(head[0], head[1]); g.rotate(hang); g.drawImage(hsp, -H.cx * w, -H.cy * h, w, h); g.restore();
+  } else {
+    g.fillStyle = pal.wood; g.strokeStyle = pal.edge; g.lineWidth = 1.6;
+    g.beginPath(); g.ellipse(head[0], head[1], b.hr * s, b.hr * 1.08 * s, hang, 0, TAU); g.fill(); g.stroke();
+  }
+  st(neck, eF, b.wa, pal.shirt, pal.edge, tc); st(eF, hF, b.wa * .85, pal.wood, pal.edge, tw);
   g.restore();
 }
 
@@ -2165,7 +2226,7 @@ function genScene(theme, len, seed) {
 let C = null;
 function prerender() {
   const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
-  C = {};
+  C = { bd: {} };
   // marco del proscenio
   const f = mk(W, H), g = f.getContext('2d');
   const curtainSide = (x0, w, dir) => {
@@ -2189,6 +2250,7 @@ function prerender() {
     g.fillStyle = '#ffe0a0'; g.beginPath(); g.ellipse(x, 501, 6.5, 2.6, 0, 0, TAU); g.fill();
   }
   g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(0, 508, W, 32);
+  if (ART.ok.marco) { g.clearRect(0, 0, W, H); g.drawImage(ART.img.marco, 0, 0, W, H); }   // marco ilustrado
   C.frame = f;
   // brillo de candilejas
   const gl = mk(W, 200), gg = gl.getContext('2d');
@@ -2208,6 +2270,11 @@ function prerender() {
   // degradados de suelo y cielos
   const ctx = document.createElement('canvas').getContext('2d');
   C.floor = ctx.createLinearGradient(0, 344, 0, 500); C.floor.addColorStop(0, '#24170e'); C.floor.addColorStop(.4, '#4a301c'); C.floor.addColorStop(1, '#7a5030');
+  if (ART.gray.w) {   // suelo con la veta ya mezclada: una sola imagen que se desplaza
+    C.floorTex = mk(W + 192, 146); const fg = C.floorTex.getContext('2d');
+    fg.save(); fg.translate(0, -354); fg.fillStyle = C.floor; fg.fillRect(0, 354, W + 192, 146);
+    fg.globalCompositeOperation = 'overlay'; fg.globalAlpha = .55; fg.scale(2, 2); fg.fillStyle = texFill(fg, 'w', '#808080'); fg.fillRect(0, 177, (W + 192) / 2, 73); fg.restore();
+  }
   C.sky = {};
   const sky = (name, stops) => { const gr = ctx.createLinearGradient(0, 30, 0, 360); stops.forEach(([o, c]) => gr.addColorStop(o, c)); C.sky[name] = gr; };
   sky('bosque', [[0, '#0f1f26'], [.6, '#24463f'], [1, '#3f6450']]);
@@ -2215,12 +2282,46 @@ function prerender() {
   sky('castillo', [[0, '#14111a'], [.6, '#24202c'], [1, '#33303c']]);
 }
 
+// Decorado ilustrado: se repite en espejo (sin costura) y se desplaza más despacio que el suelo
+function backdropCanvas(name) {   // el decorado ya ampliado y recortado, una sola vez
+  if (C.bd[name]) return C.bd[name];
+  const im = ART.img[name], base = 354 / im.naturalHeight, need = (W + 70) / (im.naturalWidth * base), z = Math.min(1.15, Math.max(1, Math.sqrt(need))), sx = Math.min(1.45, Math.max(1, need / z));
+  const h = 354 * z, tw = Math.ceil(im.naturalWidth * base * z * sx), c = document.createElement('canvas'); c.width = tw; c.height = 354;
+  c.getContext('2d').drawImage(im, 0, 354 - h, tw, h);   // anclado abajo: se recorta el cielo
+  return (C.bd[name] = c);
+}
+function drawBackdrop(g, name, off, alpha) {
+  // un solo decorado debe cubrir toda la pantalla (si no, se vería repetido a la vez); se repite en espejo, sin costura
+  const c = backdropCanvas(name), tw = c.width, per = tw * 2, o = ((off % per) + per) % per;
+  let i = Math.floor(o / tw), x = -(o - i * tw);
+  if (alpha !== undefined) g.globalAlpha = alpha;
+  for (; x < W; x += tw, i++) {
+    if (i & 1) { g.save(); g.translate(x + tw, 0); g.scale(-1, 1); g.drawImage(c, 0, 0); g.restore(); }
+    else g.drawImage(c, x, 0);
+  }
+  g.globalAlpha = 1;
+}
 function drawScene(g, camX) {
   const S = Game.scene, th = S.theme, t = Game.T;
   g.fillStyle = C.sky[th]; g.fillRect(0, 0, W, 360);
+  const bgOK = ART.ok['fondo_' + th];
+  if (bgOK) {
+    drawBackdrop(g, 'fondo_' + th, camX * .3);
+    if (th === 'castillo' && ART.ok.fondo_telar && camX > Game.actLen - W - 900) {   // al final, el telar desnudo del jefe
+      drawBackdrop(g, 'fondo_telar', camX * .3, clamp((camX - (Game.actLen - W - 900)) / 600, 0, 1));
+    }
+  }
   // textura de lienzo pintado
   g.globalAlpha = .05; g.fillStyle = '#000'; for (let y = 40; y < 360; y += 7) g.fillRect(0, y, W, 2); g.globalAlpha = 1;
-  if (th === 'bosque') {
+  if (bgOK) {
+    if (th === 'bosque') {   // la luna ya no está en el decorado (se vería repetida): se dibuja aquí, colgada de su hilo
+      const mx = 640 - camX * .05, my = 158 + Math.sin(t * .01) * 3;
+      g.strokeStyle = 'rgba(210,200,170,.6)'; g.lineWidth = 1; g.beginPath(); g.moveTo(mx, 40); g.lineTo(mx, my - 40); g.stroke();
+      const gl = g.createRadialGradient(mx, my, 30, mx, my, 120); gl.addColorStop(0, 'rgba(240,230,180,.22)'); gl.addColorStop(1, 'rgba(240,230,180,0)'); g.fillStyle = gl; g.fillRect(mx - 120, my - 120, 240, 240);
+      g.fillStyle = '#ece2bd'; g.beginPath(); g.arc(mx, my, 40, 0, TAU); g.fill();
+      g.fillStyle = 'rgba(160,150,110,.4)'; g.beginPath(); g.arc(mx - 12, my - 8, 8, 0, TAU); g.arc(mx + 14, my + 10, 6, 0, TAU); g.arc(mx + 6, my - 16, 4, 0, TAU); g.fill();
+    }
+  } else if (th === 'bosque') {
     for (const s of S.stars) { const x = ((s.x - camX * .04) % (W + 300) + W + 300) % (W + 300) - 150; g.fillStyle = 'rgba(240,230,190,.7)'; g.fillRect(x - s.s / 2, s.y, s.s, s.s); }
     const mx = 700 - camX * .05, my = 120 + Math.sin(t * .01) * 3;
     g.strokeStyle = 'rgba(200,190,160,.5)'; g.lineWidth = 1; g.beginPath(); g.moveTo(mx, 0); g.lineTo(mx, my - 40); g.stroke();
@@ -2312,6 +2413,7 @@ function drawScene(g, camX) {
   g.fillStyle = '#3a2a1a'; g.fillRect(0, 352, W, 2);
   // suelo de tablas
   g.fillStyle = C.floor; g.fillRect(0, 354, W, 146);
+  if (C.floorTex) g.drawImage(C.floorTex, -((camX * .95) % 192), 354);   // veta de la madera, que avanza con la cámara
   let y = 354, k = 0;
   while (y < 498) {
     const h = 8 + k * 1.3, f = .9 + (y - 354) / 146 * .14;
@@ -2760,6 +2862,7 @@ Snd.on = Save.d.sound;
 syncTools();
 
 // ───────── Arranque ─────────
+artLoad();
 prerender();
 Input.init();
 Touch.init();
