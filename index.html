@@ -224,9 +224,31 @@ const Snd = {
 // Música de feria: arpegios pulsados en re menor (i–VI–VII–V)
 const D3 = 146.83, nf = s => D3 * Math.pow(2, s / 12);
 const PROG = [[0, 3, 7], [-4, 0, 3], [-2, 2, 5], [-5, -1, 2]];
+// Melodía de cuatro compases a partir de los acordes: notas del acorde en los tiempos fuertes y paso por la escala entre medias.
+// Con semilla fija, así que suena igual en cada partida. Los valores son semitonos sobre la tónica de la canción.
+function genMel(prog, scale, seed, dens) {
+  const r = mulberry32(seed), pool = []; for (let o = -1; o <= 2; o++) for (const d of scale) pool.push(d + 12 * o);
+  pool.sort((a, b) => a - b);
+  let cur = prog[0][1] + 12;
+  return prog.map(ch => {
+    const bar = [];
+    for (let i = 0; i < 8; i++) {
+      if (i === 0 || i === 4) { let t = ch[1 + Math.floor(r() * 2)] + 12; if (t > 17) t -= 12; cur = t; bar.push(t); continue; }
+      if (r() > dens) { bar.push(null); continue; }
+      let ix = pool.reduce((b, v, k) => Math.abs(v - cur) < Math.abs(pool[b] - cur) ? k : b, 0);
+      ix = Math.max(0, Math.min(pool.length - 1, ix + (r() < .5 ? -1 : 1) * (r() < .75 ? 1 : 2)));
+      cur = Math.max(5, Math.min(17, pool[ix])); bar.push(cur);
+    }
+    return bar;
+  });
+}
+const PROG_FERIA = [[0, 4, 7], [-5, -1, 2], [-3, 0, 4], [-7, -3, 0]];   // I – V – vi – IV
+const PROG_CASTILLO = [[0, 3, 7], [-4, 0, 3], [-7, -4, 0], [-5, -1, 2]];   // i – VI – iv – V
 const SONGS = {
   title: { bpm: 80, arp: [0, 2, 1, 2, 0, 2, 1, 2], mel: [[12, null, null, 15, 14, null, 12, null], [10, null, null, 14, 12, null, 10, null], [9, null, 12, null, 14, null, 12, null], [13, null, null, null, 9, null, null, null]], perc: 0 },
   act: { bpm: 108, arp: [0, 1, 2, 1, 0, 1, 2, 1], mel: [[12, 12, 15, null, 14, 12, 10, null], [10, 10, 14, null, 12, 10, 9, null], [9, 12, 14, null, 17, 14, 12, null], [13, 12, 10, 9, 7, null, 9, null]], perc: 1 },
+  act2: { bpm: 100, root: 3, prog: PROG_FERIA, arp: [0, 2, 1, 2, 0, 2, 1, 2], mel: genMel(PROG_FERIA, [0, 2, 4, 5, 7, 9, 11], 2121, .85), perc: 1 },
+  act3: { bpm: 92, root: -2, prog: PROG_CASTILLO, arp: [0, 1, 2, 1, 2, 1, 0, 1], mel: genMel(PROG_CASTILLO, [0, 2, 3, 5, 7, 8, 11], 3131, .6), perc: 2 },
   boss: { bpm: 138, arp: [0, 2, 1, 2, 0, 2, 1, 2], mel: [[12, 15, 12, 15, 14, 12, 10, 12], [10, 14, 10, 14, 12, 10, 9, 10], [9, 12, 14, 12, 17, 14, 12, 14], [13, 16, 13, 9, 13, 16, 19, 16]], perc: 2 },
 };
 const Music = {
@@ -240,10 +262,10 @@ const Music = {
     while (this.next < c.currentTime + .25) { this.note(S, this.step, this.next); this.next += dur; this.step++; }
   },
   note(S, st, t) {
-    const bar = Math.floor(st / 8) % 4, i = st % 8, ch = PROG[bar], M = Snd.mus;
-    Snd.pluck(0, nf(ch[S.arp[i]] + 12) / 220, .16, t, M);
-    if (i === 0 || i === 4) Snd.pluck(1, nf(ch[0] - 12) / 110, .42, t, M);
-    const m = S.mel[bar][i]; if (m !== null) Snd.pluck(0, nf(m + 12) / 220, .3, t, M);
+    const bar = Math.floor(st / 8) % 4, i = st % 8, ch = (S.prog || PROG)[bar], M = Snd.mus, rt = S.root || 0;
+    Snd.pluck(0, nf(ch[S.arp[i]] + 12 + rt) / 220, .16, t, M);
+    if (i === 0 || i === 4) Snd.pluck(1, nf(ch[0] - 12 + rt) / 110, .42, t, M);
+    const m = S.mel[bar][i]; if (m !== null) Snd.pluck(0, nf(m + 12 + rt) / 220, .3, t, M);
     if (S.perc >= 1 && i % 2 === 0) Snd.osc(t, 'triangle', 1100, 800, .03, .06, M);
     if (S.perc >= 2) {
       if (i === 0 || i === 4) Snd.osc(t, 'sine', 120, 40, .16, .5, M);
@@ -789,7 +811,7 @@ const ACTS = [
     props: [['caja', 680, 90, 'carrete'], ['cesto', 1420, 30, null], ['caja', 1640, 104, 'tijeras'], ['cesto', 2330, 60, 'carrete'], ['caja', 3120, 80, 'mazo'], ['cesto', 3340, 24, 'ovillo']],
   },
   {
-    title: 'La Ciudad de Tela', num: 'ACTO II', theme: 'ciudad', len: 5000, tokens: 2, cd: 1.05, eDmg: 1, music: 'act',
+    title: 'La Ciudad de Tela', num: 'ACTO II', theme: 'ciudad', len: 5000, tokens: 2, cd: 1.05, eDmg: 1, music: 'act2',
     secs: [
       { x: 360, waves: [[['comparsa', 'R'], ['saltimbanqui', 'R', 30], ['comparsa', 'L', 60]], [['saltimbanqui', 'T'], ['costurera', 'R', 30]]] },
       { x: 1200, waves: [[['alabardero', 'R'], ['alabardero', 'L'], ['comparsa', 'T', 30]], [['saltimbanqui', 'T'], ['saltimbanqui', 'T', 30], ['comparsa', 'R', 40]]] },
@@ -800,7 +822,7 @@ const ACTS = [
     props: [['caja', 720, 96, 'carrete'], ['cesto', 1520, 20, 'mazo'], ['caja', 1830, 70, 'carrete'], ['cesto', 2600, 100, 'tijeras'], ['caja', 3500, 40, 'ovillo'], ['cesto', 3760, 90, 'carrete']],
   },
   {
-    title: 'El Castillo de Tramoya', num: 'ACTO III', theme: 'castillo', len: 5400, tokens: 2, cd: .8, eDmg: 1.05, music: 'act',
+    title: 'El Castillo de Tramoya', num: 'ACTO III', theme: 'castillo', len: 5400, tokens: 2, cd: .8, eDmg: 1.05, music: 'act3',
     secs: [
       { x: 360, waves: [[['mozo', 'R'], ['comparsa', 'L'], ['comparsa', 'T', 30]], [['alabardero', 'R'], ['saltimbanqui', 'T', 20], ['costurera', 'L', 40]]] },
       { x: 1250, waves: [[['saltimbanqui', 'R'], ['saltimbanqui', 'L'], ['costurera', 'T', 30]], [['mozo', 'R'], ['alabardero', 'T', 30], ['comparsa', 'L', 40]]] },
@@ -2040,7 +2062,7 @@ const Game = {
     for (const p of this.players) if (p.alive) { p.atk = null; if (p.hold) { const h = p.hold; p.hold = null; h.heldBy = null; } setState(p, 'win'); p.vx = p.vz = 0; }
   },
   continueGame() {
-    this.credits--; this.st = 'play'; Music.start(this.locked && this.act.secs[this.secIdx].boss ? 'boss' : 'act');
+    this.credits--; this.st = 'play'; Music.start(this.locked && this.act.secs[this.secIdx].boss ? 'boss' : this.act.music);
     for (const p of this.players) { p.out = false; p.lives = 3; if (!p.alive) this.respawn(p); }
   },
   startDemo() {
