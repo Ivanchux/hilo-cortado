@@ -2,6 +2,8 @@
 
 <img src="capturas/banner.png" alt="Hilo Cortado" width="100%">
 
+<img src="capturas/logo.png" alt="Hilo Cortado" width="420">
+
 # 🪢 Hilo Cortado
 
 **Beat 'em up de avance lateral con marionetas de madera.**
@@ -210,9 +212,9 @@ hilo-cortado/
 ├── img/              # Decorados, marco, caras, texturas, piezas de las marionetas y objetos
 ├── docs/             # Prompts de las ilustraciones
 ├── test/             # Pruebas en Chromium (node test/parches.js)
-├── tools/            # build-dist.mjs (dist/ y .zip para itch.io), build-art.py y build-cuerpos.py (preparan las ilustraciones)
+├── tools/            # build-dist.mjs (dist/ y .zip para itch.io), build-art.py, build-cuerpos.py y build-logo.py (preparan las ilustraciones, el logo y los iconos)
 ├── itch/             # Textos, portada, capturas y guía de subida
-├── capturas/         # Banner, capturas y GIFs de este README
+├── capturas/         # Banner, logo, capturas y GIFs de este README
 ├── CHANGELOG.md      # Historial de versiones
 ├── LICENSE           # PolyForm Noncommercial 1.0.0
 └── README.md

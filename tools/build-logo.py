@@ -7,7 +7,7 @@ Necesita Pillow y NumPy. Cualquiera de las dos imágenes puede faltar: se genera
 """
 import sys, pathlib
 import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter
 
 root = pathlib.Path(__file__).resolve().parent.parent
 src = pathlib.Path(sys.argv[1])
@@ -34,5 +34,10 @@ if icon.exists():
         ImageDraw.Draw(m).rounded_rectangle([0, 0, size - 1, size - 1], radius=int(size * radius), fill=255); x.putalpha(m); return x
     rounded(512, .18).save(root / 'icon-512.png', optimize=True)
     im.resize((180, 180), Image.LANCZOS).save(root / 'apple-touch-icon.png', optimize=True)   # iOS aplica sus propias esquinas
-    rounded(32, .16).save(root / 'favicon-32.png', optimize=True); rounded(16, .16).save(root / 'favicon-16.png', optimize=True)
-    rounded(64, .16).save(root / 'favicon.ico', sizes=[(16, 16), (32, 32), (48, 48), (64, 64)]); print('iconos listos')
+    # los favicons pequeños se recortan más cerca del símbolo y se afilan, para que se lea a 16 y 32 píxeles
+    tight = im.crop((int(s * .06), int(s * .06), int(s * .98), int(s * .98))); ts = max(tight.size); tight = tight.crop((0, 0, ts, ts)) if tight.width == tight.height else tight.resize((ts, ts), Image.LANCZOS)
+    def small(size):
+        x = tight.resize((size, size), Image.LANCZOS).filter(ImageFilter.UnsharpMask(radius=1, percent=140, threshold=2)).convert('RGBA'); m = Image.new('L', (size, size), 0)
+        ImageDraw.Draw(m).rounded_rectangle([0, 0, size - 1, size - 1], radius=int(size * .14), fill=255); x.putalpha(m); return x
+    small(32).save(root / 'favicon-32.png', optimize=True); small(16).save(root / 'favicon-16.png', optimize=True)
+    small(64).save(root / 'favicon.ico', sizes=[(16, 16), (32, 32), (48, 48), (64, 64)]); print('iconos listos')

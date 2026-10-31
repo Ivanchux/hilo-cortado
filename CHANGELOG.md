@@ -1,6 +1,7 @@
 # Registro de cambios
 
 ## 1.3 · Arte ilustrado
+- **Logo oficial** (`capturas/logo.png`, con transparencia) en la cabecera del README, e **icono nuevo** (cruceta de marionetista con el hilo cortado por unas tijeras) para la pestaña, el icono de 512 px y la pantalla de inicio del móvil. Los favicons pequeños se recortan más cerca del símbolo para que se lean a 16 y 32 píxeles. `tools/build-logo.py` los genera, y `docs/PROMPTS_LOGO.md` tiene los prompts.
 - **Marionetas ilustradas.** Los diez personajes (Clavija, Bramante, Comparsa, Alabardero, Saltimbanqui, Costurera, Mozo, Titiritero y los jefes Mozo Mayor y Madre Tijera) se dibujan con piezas ilustradas (torso, brazo, antebrazo con mano, muslo, espinilla, bota y complementos) rotadas entre las articulaciones. Se conserva todo el sistema de hilos: un brazo cortado cuelga y la marioneta desplomada queda hecha un montón de piezas. Las piezas del lado lejano se oscurecen, y hay destello al golpear y variante quemada.
 - **Decorados ilustrados** para los tres actos y el telar del jefe, repetidos en espejo sin costura; **marco del escenario** (telón, cenefa y candilejas), **caras**, **texturas** de madera y tela en el suelo, y **armas y objetos** ilustrados (tijeras, tijerona, alabarda, mazo, vela, bastón, carrete, ovillo, caja, cesto y tonel).
 - Todo con **respaldo por código**: si una imagen falta, esa parte se dibuja como antes. El juego sigue a 60 fps.
