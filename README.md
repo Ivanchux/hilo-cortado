@@ -2,6 +2,8 @@
 
 <img src="capturas/banner.png" alt="Hilo Cortado" width="100%">
 
+<img src="capturas/logo.png" alt="Hilo Cortado" width="420">
+
 # 🪢 Hilo Cortado
 
 **Beat 'em up de avance lateral con marionetas de madera.**
@@ -27,7 +29,7 @@ Cada golpe gasta un hilo: corta los de los brazos y el enemigo suelta el arma, c
 
 Hilo Cortado es un juego de navegador de peleas de avance lateral para uno o dos jugadores. Los personajes son marionetas de piezas recortadas que cuelgan de una cruceta, y los golpes cortan hilos: sin un brazo no hay golpes con ese brazo, sin una pierna la marioneta cojea y sin el hilo de la cabeza se desploma.
 
-- **Un solo `index.html`**, con Canvas 2D y Web Audio. Sin librerías, sin imágenes y sin sonidos externos.
+- **`index.html` más la carpeta `img/`**: el juego es un solo archivo de código (Canvas 2D y Web Audio, sin librerías y sin sonidos externos) y las ilustraciones van en `img/`. **Si falta alguna imagen, esa parte se dibuja por código** como antes.
 - Funciona con **teclado, mando y pantalla táctil**.
 - **Cooperativo local:** el jugador 2 entra en cualquier momento pulsando su botón de golpe.
 - Tres actos, tres jefes y armas que se recogen y se rompen.
@@ -51,10 +53,6 @@ Hilo Cortado es un juego de navegador de peleas de avance lateral para uno o dos
 
 <div align="center">
 
-**Clavija agarra a un alabardero por los hilos y lo voltea contra el resto**
-
-<img src="capturas/mangual.gif" width="560">
-
 **Cooperativo a dos jugadores**
 
 <img src="capturas/cooperativo.gif" width="560">
@@ -75,7 +73,7 @@ Hilo Cortado es un juego de navegador de peleas de avance lateral para uno o dos
 
 Un teatro ambulante y un titiritero que no suelta a nadie. Clavija y Bramante se cortaron los hilos negros con unas tijeras de sastre, se ataron hilo rojo a una cruceta robada y cruzan el decorado, acto por acto, hasta el telar donde él espera.
 
-Los personajes no tienen sprites. Son marionetas de piezas recortadas cuyas poses se interpolan por código, cuelgan de una cruceta que se ve en lo alto del escenario y caen de verdad cuando se les corta un hilo.
+Los personajes no son hojas de animación: son **marionetas articuladas**. Cada una se compone de piezas ilustradas (cabeza, torso, brazo, antebrazo con mano, muslo, espinilla, bota y complementos como la bufanda de Clavija, el delantal de la Costurera o la capa del Titiritero) que se dibujan rotadas entre las articulaciones, con las poses interpoladas por código. Cuelgan de una cruceta que se ve en lo alto del escenario y caen de verdad cuando se les corta un hilo: un brazo cortado cuelga del hombro y la marioneta desplomada se queda hecha un montón de piezas.
 
 ## ⌨️ Controles
 
@@ -184,11 +182,13 @@ Crea `dist/` y `hilo-cortado-html5.zip` (unos 60 KB). Los textos, la portada y l
 
 ## 🔧 Cómo está hecho
 
-- **Un solo `index.html`** de unas 2 750 líneas, con Canvas 2D y Web Audio. Sin librerías, sin imágenes y sin sonidos externos.
+- **`index.html`** (unas 3 000 líneas, con Canvas 2D y Web Audio) **más `img/`** con las ilustraciones. Sin librerías y sin sonidos externos. Cada ilustración tiene respaldo por código, así que el juego funciona aunque falte alguna.
+- **Arte:** decorados de los tres actos y del telar, marco del escenario, caras, texturas de madera y tela, las piezas de las diez marionetas y los objetos. Los decorados se repiten en espejo al desplazarse, el suelo lleva la veta de la madera y las piezas del lado lejano se oscurecen para dar volumen. Se rehace con `tools/build-art.py` y `tools/build-cuerpos.py` (Python con Pillow y NumPy).
+- **Animación:** aplastamiento y estiramiento al saltar y aterrizar (a la mitad con «calma»), polvo al arrancar la carrera, al derrapar y al correr.
 - **Animación procedural por esqueleto.** Cada marioneta tiene diez articulaciones y una raíz. Los estados (andar, golpear, caer, agarrar…) dan poses clave y cada articulación las persigue con un muelle amortiguado, lo que da el balanceo de marioneta sin fotogramas dibujados. Un miembro sin hilo deja de seguir la pose y pasa a colgar como un péndulo que reacciona a la aceleración del cuerpo. Al morir, el esqueleto se convierte en un muñeco de Verlet que se desploma sobre las tablas. Las crucetas siguen a cada marioneta con inercia y los hilos se inclinan cuando corre o sale despedida.
 - **Combate.** Cajas de golpe y de daño en tres ejes (avance, altura y profundidad), parada de fotogramas por golpe, empuje, malabares limitados en el aire, mareo acumulado y supercoraza en los ataques pesados. Un director de turnos reparte los ataques: solo quien tiene turno puede golpear y el resto rodea al jugador.
 - **Juice.** Parada de fotogramas, temblor por trauma, destello blanco del golpeado, astillas, chispas, polvo, hilos que salen latigueando hacia arriba al cortarse, cámara lenta al caer un jefe y texto de combate concreto en la parte baja del escenario («Las tijeras de la costurera cortan el hilo de la pierna derecha de Clavija: la pierna se le dobla y cojea.»).
-- **Sonido.** Todo sintetizado. Los hilos que se rompen y la música de feria salen de cuerdas pulsadas con Karplus-Strong; los golpes, de osciladores y ruido filtrado.
+- **Sonido.** Todo sintetizado. Los hilos que se rompen y la música de feria salen de cuerdas pulsadas con Karplus-Strong; los golpes, de osciladores y ruido filtrado. Cada acto tiene su música (el Acto II en modo mayor, el Acto III en menor armónico, más lento), con melodías generadas con semilla a partir de los acordes.
 - **Pruebas.** `index.html?test=1` expone `window.HC` para jugar sin interfaz: arrancar partidas con semilla, avanzar fotogramas, colocar enemigos, pulsar botones y leer estadísticas. `index.html?demo=1` arranca la demostración con dos bots, que también salta sola tras 25 segundos en el título.
 
 ## 🧪 Pruebas hechas
@@ -208,11 +208,13 @@ En Chromium sin interfaz, con Playwright:
 
 ```text
 hilo-cortado/
-├── index.html        # El juego completo (HTML + CSS + JS)
+├── index.html        # El juego (HTML + CSS + JS)
+├── img/              # Decorados, marco, caras, texturas, piezas de las marionetas y objetos
+├── docs/             # Prompts de las ilustraciones
 ├── test/             # Pruebas en Chromium (node test/parches.js)
-├── tools/            # build-dist.mjs: genera dist/ y el .zip para itch.io
+├── tools/            # build-dist.mjs (dist/ y .zip para itch.io), build-art.py, build-cuerpos.py y build-logo.py (preparan las ilustraciones, el logo y los iconos)
 ├── itch/             # Textos, portada, capturas y guía de subida
-├── capturas/         # Banner, capturas y GIFs de este README
+├── capturas/         # Banner, logo, capturas y GIFs de este README
 ├── CHANGELOG.md      # Historial de versiones
 ├── LICENSE           # PolyForm Noncommercial 1.0.0
 └── README.md

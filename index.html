@@ -224,9 +224,31 @@ const Snd = {
 // Música de feria: arpegios pulsados en re menor (i–VI–VII–V)
 const D3 = 146.83, nf = s => D3 * Math.pow(2, s / 12);
 const PROG = [[0, 3, 7], [-4, 0, 3], [-2, 2, 5], [-5, -1, 2]];
+// Melodía de cuatro compases a partir de los acordes: notas del acorde en los tiempos fuertes y paso por la escala entre medias.
+// Con semilla fija, así que suena igual en cada partida. Los valores son semitonos sobre la tónica de la canción.
+function genMel(prog, scale, seed, dens) {
+  const r = mulberry32(seed), pool = []; for (let o = -1; o <= 2; o++) for (const d of scale) pool.push(d + 12 * o);
+  pool.sort((a, b) => a - b);
+  let cur = prog[0][1] + 12;
+  return prog.map(ch => {
+    const bar = [];
+    for (let i = 0; i < 8; i++) {
+      if (i === 0 || i === 4) { let t = ch[1 + Math.floor(r() * 2)] + 12; if (t > 17) t -= 12; cur = t; bar.push(t); continue; }
+      if (r() > dens) { bar.push(null); continue; }
+      let ix = pool.reduce((b, v, k) => Math.abs(v - cur) < Math.abs(pool[b] - cur) ? k : b, 0);
+      ix = Math.max(0, Math.min(pool.length - 1, ix + (r() < .5 ? -1 : 1) * (r() < .75 ? 1 : 2)));
+      cur = Math.max(5, Math.min(17, pool[ix])); bar.push(cur);
+    }
+    return bar;
+  });
+}
+const PROG_FERIA = [[0, 4, 7], [-5, -1, 2], [-3, 0, 4], [-7, -3, 0]];   // I – V – vi – IV
+const PROG_CASTILLO = [[0, 3, 7], [-4, 0, 3], [-7, -4, 0], [-5, -1, 2]];   // i – VI – iv – V
 const SONGS = {
   title: { bpm: 80, arp: [0, 2, 1, 2, 0, 2, 1, 2], mel: [[12, null, null, 15, 14, null, 12, null], [10, null, null, 14, 12, null, 10, null], [9, null, 12, null, 14, null, 12, null], [13, null, null, null, 9, null, null, null]], perc: 0 },
   act: { bpm: 108, arp: [0, 1, 2, 1, 0, 1, 2, 1], mel: [[12, 12, 15, null, 14, 12, 10, null], [10, 10, 14, null, 12, 10, 9, null], [9, 12, 14, null, 17, 14, 12, null], [13, 12, 10, 9, 7, null, 9, null]], perc: 1 },
+  act2: { bpm: 100, root: 3, prog: PROG_FERIA, arp: [0, 2, 1, 2, 0, 2, 1, 2], mel: genMel(PROG_FERIA, [0, 2, 4, 5, 7, 9, 11], 2121, .85), perc: 1 },
+  act3: { bpm: 92, root: -2, prog: PROG_CASTILLO, arp: [0, 1, 2, 1, 2, 1, 0, 1], mel: genMel(PROG_CASTILLO, [0, 2, 3, 5, 7, 8, 11], 3131, .6), perc: 2 },
   boss: { bpm: 138, arp: [0, 2, 1, 2, 0, 2, 1, 2], mel: [[12, 15, 12, 15, 14, 12, 10, 12], [10, 14, 10, 14, 12, 10, 9, 10], [9, 12, 14, 12, 17, 14, 12, 14], [13, 16, 13, 9, 13, 16, 19, 16]], perc: 2 },
 };
 const Music = {
@@ -240,10 +262,10 @@ const Music = {
     while (this.next < c.currentTime + .25) { this.note(S, this.step, this.next); this.next += dur; this.step++; }
   },
   note(S, st, t) {
-    const bar = Math.floor(st / 8) % 4, i = st % 8, ch = PROG[bar], M = Snd.mus;
-    Snd.pluck(0, nf(ch[S.arp[i]] + 12) / 220, .16, t, M);
-    if (i === 0 || i === 4) Snd.pluck(1, nf(ch[0] - 12) / 110, .42, t, M);
-    const m = S.mel[bar][i]; if (m !== null) Snd.pluck(0, nf(m + 12) / 220, .3, t, M);
+    const bar = Math.floor(st / 8) % 4, i = st % 8, ch = (S.prog || PROG)[bar], M = Snd.mus, rt = S.root || 0;
+    Snd.pluck(0, nf(ch[S.arp[i]] + 12 + rt) / 220, .16, t, M);
+    if (i === 0 || i === 4) Snd.pluck(1, nf(ch[0] - 12 + rt) / 110, .42, t, M);
+    const m = S.mel[bar][i]; if (m !== null) Snd.pluck(0, nf(m + 12 + rt) / 220, .3, t, M);
     if (S.perc >= 1 && i % 2 === 0) Snd.osc(t, 'triangle', 1100, 800, .03, .06, M);
     if (S.perc >= 2) {
       if (i === 0 || i === 4) Snd.osc(t, 'sine', 120, 40, .16, .5, M);
@@ -251,6 +273,103 @@ const Music = {
     }
   },
 };
+
+// ───────── Arte ilustrado (img/) con respaldo: si una imagen no carga, se dibuja lo de siempre por código ─────────
+/*CUERPOS*/
+// Generado por tools/build-cuerpos.py: medidas y puntos de giro (fracciones) de las piezas ilustradas y de los objetos
+const CUERPOS = {"alabardero":{"torso":{"w":117,"h":190,"px":0.577,"py":0.058,"bx":0.513,"by":0.945},"uarm":{"w":59,"h":170,"px":0.508,"py":0.062,"bx":0.508,"by":0.938},"farm":{"w":63,"h":190,"px":0.389,"py":0.058,"bx":0.619,"by":0.929},"thigh":{"w":60,"h":180,"px":0.467,"py":0.058,"bx":0.467,"by":0.942},"shin":{"w":61,"h":170,"px":0.5,"py":0.065,"bx":0.484,"by":0.935},"boot":{"w":102,"h":150,"px":0.294,"py":0.063,"bx":0.279,"by":0.933},"a1":{"w":107,"h":200,"px":0.5,"py":0.065,"bx":0.5,"by":0.88},"a2":{"w":184,"h":200,"px":0.451,"py":0.043,"bx":0.136,"by":0.892}},"bramante":{"torso":{"w":167,"h":190,"px":0.551,"py":0.071,"bx":0.548,"by":0.932},"uarm":{"w":60,"h":170,"px":0.517,"py":0.074,"bx":0.492,"by":0.929},"farm":{"w":73,"h":190,"px":0.329,"py":0.071,"bx":0.507,"by":0.892},"thigh":{"w":70,"h":180,"px":0.479,"py":0.072,"bx":0.479,"by":0.928},"shin":{"w":56,"h":170,"px":0.527,"py":0.076,"bx":0.491,"by":0.924},"boot":{"w":150,"h":147,"px":0.263,"py":0.095,"bx":0.455,"by":0.88},"a1":{"w":134,"h":200,"px":0.806,"py":0.052,"bx":0.369,"by":0.955},"a2":{"w":66,"h":200,"px":0.394,"py":0.077,"bx":0.492,"by":0.88}},"clavija":{"torso":{"w":150,"h":190,"px":0.527,"py":0.076,"bx":0.55,"by":0.88},"uarm":{"w":69,"h":170,"px":0.507,"py":0.074,"bx":0.5,"by":0.929},"farm":{"w":61,"h":190,"px":0.459,"py":0.076,"bx":0.508,"by":0.918},"thigh":{"w":65,"h":180,"px":0.485,"py":0.067,"bx":0.477,"by":0.936},"shin":{"w":57,"h":170,"px":0.5,"py":0.076,"bx":0.509,"by":0.926},"boot":{"w":150,"h":147,"px":0.267,"py":0.099,"bx":0.457,"by":0.88},"a1":{"w":109,"h":200,"px":0.459,"py":0.072,"bx":0.538,"by":0.88},"a2":{"w":44,"h":200,"px":0.477,"py":0.072,"bx":0.557,"by":0.94}},"comparsa":{"torso":{"w":104,"h":190,"px":0.495,"py":0.063,"bx":0.495,"by":0.937},"uarm":{"w":62,"h":170,"px":0.411,"py":0.071,"bx":0.532,"by":0.926},"farm":{"w":72,"h":190,"px":0.312,"py":0.068,"bx":0.451,"by":0.884},"thigh":{"w":68,"h":180,"px":0.507,"py":0.067,"bx":0.522,"by":0.933},"shin":{"w":53,"h":170,"px":0.509,"py":0.074,"bx":0.5,"by":0.924},"boot":{"w":146,"h":150,"px":0.312,"py":0.093,"bx":0.486,"by":0.88},"a1":{"w":153,"h":200,"px":0.513,"py":0.08,"bx":0.549,"by":0.968}},"costurera":{"torso":{"w":111,"h":190,"px":0.509,"py":0.053,"bx":0.495,"by":0.945},"uarm":{"w":54,"h":170,"px":0.491,"py":0.059,"bx":0.509,"by":0.941},"farm":{"w":55,"h":190,"px":0.364,"py":0.055,"bx":0.473,"by":0.95},"thigh":{"w":51,"h":180,"px":0.5,"py":0.056,"bx":0.49,"by":0.942},"shin":{"w":44,"h":170,"px":0.5,"py":0.056,"bx":0.477,"by":0.944},"boot":{"w":122,"h":150,"px":0.295,"py":0.07,"bx":0.49,"by":0.88},"a1":{"w":106,"h":200,"px":0.505,"py":0.055,"bx":0.5,"by":0.88},"a2":{"w":132,"h":200,"px":0.5,"py":0.052,"bx":0.5,"by":0.88}},"madreTijera":{"torso":{"w":141,"h":190,"px":0.514,"py":0.047,"bx":0.518,"by":0.955},"uarm":{"w":76,"h":170,"px":0.493,"py":0.053,"bx":0.474,"by":0.95},"farm":{"w":58,"h":190,"px":0.397,"py":0.05,"bx":0.586,"by":0.945},"thigh":{"w":55,"h":180,"px":0.491,"py":0.047,"bx":0.482,"by":0.956},"shin":{"w":47,"h":170,"px":0.5,"py":0.053,"bx":0.457,"by":0.953},"boot":{"w":150,"h":149,"px":0.233,"py":0.07,"bx":0.52,"by":0.88},"a1":{"w":126,"h":200,"px":0.496,"py":0.055,"bx":0.496,"by":0.88},"a2":{"w":160,"h":200,"px":0.503,"py":0.05,"bx":0.5,"by":0.88}},"mozo":{"torso":{"w":149,"h":190,"px":0.547,"py":0.058,"bx":0.544,"by":0.939},"uarm":{"w":74,"h":170,"px":0.507,"py":0.059,"bx":0.534,"by":0.941},"farm":{"w":77,"h":190,"px":0.435,"py":0.058,"bx":0.591,"by":0.895},"thigh":{"w":77,"h":180,"px":0.494,"py":0.058,"bx":0.416,"by":0.942},"shin":{"w":61,"h":170,"px":0.5,"py":0.065,"bx":0.459,"by":0.938},"boot":{"w":150,"h":143,"px":0.223,"py":0.077,"bx":0.466,"by":0.88},"a1":{"w":125,"h":200,"px":0.496,"py":0.12,"bx":0.496,"by":0.88},"a2":{"w":83,"h":200,"px":0.524,"py":0.085,"bx":0.59,"by":0.927}},"mozoMayor":{"torso":{"w":160,"h":190,"px":0.541,"py":0.068,"bx":0.581,"by":0.929},"uarm":{"w":75,"h":170,"px":0.493,"py":0.12,"bx":0.5,"by":0.929},"farm":{"w":79,"h":190,"px":0.424,"py":0.068,"bx":0.468,"by":0.882},"thigh":{"w":84,"h":180,"px":0.494,"py":0.067,"bx":0.482,"by":0.933},"shin":{"w":68,"h":170,"px":0.493,"py":0.071,"bx":0.493,"by":0.929},"boot":{"w":141,"h":150,"px":0.284,"py":0.077,"bx":0.498,"by":0.88},"a1":{"w":151,"h":200,"px":0.483,"py":0.12,"bx":0.46,"by":0.88},"a2":{"w":77,"h":200,"px":0.63,"py":0.075,"bx":0.208,"by":0.922}},"saltimbanqui":{"torso":{"w":80,"h":190,"px":0.494,"py":0.042,"bx":0.481,"by":0.947},"uarm":{"w":41,"h":170,"px":0.5,"py":0.059,"bx":0.463,"by":0.944},"farm":{"w":53,"h":190,"px":0.387,"py":0.058,"bx":0.462,"by":0.932},"thigh":{"w":54,"h":180,"px":0.491,"py":0.056,"bx":0.435,"by":0.944},"shin":{"w":43,"h":170,"px":0.512,"py":0.056,"bx":0.512,"by":0.944},"boot":{"w":117,"h":150,"px":0.265,"py":0.07,"bx":0.465,"by":0.88},"a1":{"w":200,"h":91,"px":0.49,"py":0.12,"bx":0.489,"by":0.88}},"titiritero":{"torso":{"w":103,"h":190,"px":0.515,"py":0.061,"bx":0.505,"by":0.88},"uarm":{"w":42,"h":170,"px":0.5,"py":0.05,"bx":0.44,"by":0.953},"farm":{"w":53,"h":190,"px":0.349,"py":0.047,"bx":0.538,"by":0.926},"thigh":{"w":43,"h":180,"px":0.5,"py":0.044,"bx":0.5,"by":0.956},"shin":{"w":39,"h":170,"px":0.487,"py":0.05,"bx":0.487,"by":0.95},"boot":{"w":150,"h":143,"px":0.247,"py":0.073,"bx":0.501,"by":0.88},"a1":{"w":132,"h":200,"px":0.5,"py":0.113,"bx":0.496,"by":0.88},"a2":{"w":100,"h":200,"px":0.504,"py":0.12,"bx":0.5,"by":0.88}}};
+const OBJETOS = {"tijeras":{"w":105,"h":170},"tijerona":{"w":149,"h":170},"alabarda":{"w":66,"h":170},"mazo":{"w":97,"h":170},"vela":{"w":119,"h":170},"baston":{"w":33,"h":170},"carrete":{"w":141,"h":170},"ovillo":{"w":170,"h":137},"caja":{"w":170,"h":131},"cesto":{"w":170,"h":144},"tonel":{"w":133,"h":170},"cruceta":{"w":170,"h":138}};
+/*FIN-CUERPOS*/
+const ART = { img: {}, ok: {}, gray: {} };
+const ART_FILES = ['fondo_bosque.jpg', 'fondo_ciudad.jpg', 'fondo_castillo.jpg', 'fondo_telar.jpg', 'marco.png', 'textura_madera.jpg', 'textura_tela.jpg']
+  .concat(['clavija', 'bramante', 'comparsa', 'alabardero', 'saltimbanqui', 'costurera', 'mozo', 'titiritero'].map(n => 'cara_' + n + '.png'));
+// cara de cada marioneta: cx, cy = centro de la cara en la imagen (fracción) y fh = alto de la cara (fracción del alto de la imagen)
+const HEADART = {
+  clavija: { cx: .52, cy: .64, fh: .60 }, bramante: { cx: .55, cy: .66, fh: .57 }, comparsa: { cx: .55, cy: .70, fh: .56 }, alabardero: { cx: .60, cy: .67, fh: .58 },
+  saltimbanqui: { cx: .55, cy: .74, fh: .48 }, costurera: { cx: .58, cy: .67, fh: .58 }, mozo: { cx: .50, cy: .60, fh: .62 }, titiritero: { cx: .55, cy: .66, fh: .60 },
+};
+function artLoad() {
+  const extra = [];
+  for (const bk in CUERPOS) for (const p in CUERPOS[bk]) extra.push(['c_' + bk + '_' + p, 'img/cuerpos/' + bk + '_' + p + '.png']);
+  for (const o in OBJETOS) extra.push(['o_' + o, 'img/objetos/' + o + '.png']);
+  for (const [name, url] of extra) { const im = new Image(); im.onload = () => { ART.ok[name] = true; }; im.onerror = () => { ART.ok[name] = false; }; im.src = url; ART.img[name] = im; }
+  for (const f of ART_FILES) {
+    const name = f.replace(/\.(png|jpg)$/, ''), im = new Image();
+    im.onload = () => { ART.ok[name] = true; if (name.startsWith('textura_')) artGray(name.slice(8)); if (typeof C !== 'undefined' && C && (name === 'marco' || name.startsWith('textura_'))) prerender(); };
+    im.onerror = () => { ART.ok[name] = false; };
+    im.src = 'img/' + f; ART.img[name] = im;
+  }
+}
+// textura en gris centrado en 128 (para teñirla con overlay sin cambiar el tono ni el brillo medio del color)
+function artGray(kind) {
+  const k = kind === 'madera' ? 'w' : 'c', c = document.createElement('canvas'); c.width = c.height = 96; const x = c.getContext('2d');
+  x.drawImage(ART.img['textura_' + kind], 0, 0, 96, 96);
+  x.globalCompositeOperation = 'saturation'; x.fillStyle = '#808080'; x.fillRect(0, 0, 96, 96);
+  x.globalCompositeOperation = 'multiply'; x.fillStyle = k === 'w' ? '#ababab' : '#a3a3a3'; x.fillRect(0, 0, 96, 96);
+  ART.gray[k] = c;
+}
+const TEXC = {};
+function texFill(g, kind, col) {   // kind: 'w' madera, 'c' tela. Devuelve un patrón teñido con col, o col si no hay textura
+  const im = ART.gray[kind]; if (!im || !kind) return col;
+  const key = kind + col; let p = TEXC[key];
+  if (!p) {
+    const c = document.createElement('canvas'); c.width = c.height = 96; const x = c.getContext('2d');
+    x.fillStyle = col; x.fillRect(0, 0, 96, 96); x.globalCompositeOperation = 'overlay'; x.globalAlpha = kind === 'w' ? .8 : .65; x.drawImage(im, 0, 0);
+    p = g.createPattern(c, 'repeat'); TEXC[key] = p;
+  }
+  return p;
+}
+// la cara teñida para el destello (blanco) y el quemado
+const HEADV = {};
+function headSprite(look, pal) {
+  const key = look.hk, im = ART.img['cara_' + key]; if (!key || !HEADART[key] || !ART.ok['cara_' + key]) return null;
+  const v = pal === WHITE_PAL ? 'f' : pal === BURN_PAL ? 'b' : ''; if (!v) return im;
+  const id = key + v; let c = HEADV[id];
+  if (!c) {
+    c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight; const x = c.getContext('2d'); x.drawImage(im, 0, 0);
+    x.globalCompositeOperation = 'source-atop'; x.fillStyle = v === 'f' ? '#fff3dc' : 'rgba(34,22,16,.74)'; x.fillRect(0, 0, c.width, c.height); HEADV[id] = c;   // solo sobre lo ya dibujado: nada de rectángulos
+  }
+  return c;
+}
+
+// Piezas ilustradas de las marionetas (img/cuerpos). Cada pieza se dibuja rotada entre dos articulaciones, con su pivote en la articulación.
+const BODYV = {};
+const TORSO_BY = .92;   // el pivote de la cadera del torso está más abajo de lo que detecta la herramienta
+const BODY_NEED = ['torso', 'uarm', 'farm', 'thigh', 'shin', 'boot'];
+// complementos de cada personaje: skirt (falda que cuelga de la cadera), apron (delantal sobre el torso), sash (banda), collar, scarf, cape
+const BODY_ACC = {
+  clavija: { a1: 'scarf' }, bramante: { a1: 'sash' }, comparsa: { a1: 'skirt' }, alabardero: { a1: 'skirt' }, saltimbanqui: { a1: 'collar' },
+  costurera: { a1: 'apron', a2: 'skirt' }, mozo: { a1: 'apron' }, titiritero: { a1: 'cape' }, mozoMayor: { a1: 'apron' }, madreTijera: { a1: 'apron', a2: 'skirt' },
+};
+function bodyReady(bk) { return !!bk && !!CUERPOS[bk] && BODY_NEED.every(p => ART.ok['c_' + bk + '_' + p]); }
+function partImg(bk, part, v) {   // v: '' normal · 'f' destello · 'b' quemado · 'd' lado lejano (más oscuro)
+  const n = 'c_' + bk + '_' + part; if (!ART.ok[n]) return null; const im = ART.img[n]; if (!v) return im;
+  const id = n + v; let c = BODYV[id];
+  if (!c) {
+    c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight; const x = c.getContext('2d'); x.drawImage(im, 0, 0);
+    x.globalCompositeOperation = 'source-atop'; x.fillStyle = v === 'f' ? '#fff3dc' : v === 'b' ? 'rgba(34,22,16,.74)' : 'rgba(18,10,6,.34)'; x.fillRect(0, 0, c.width, c.height); BODYV[id] = c;
+  }
+  return c;
+}
+// Miembro entre A (pivote de arriba) y B. span: fracción de la altura que cubre |AB| (por defecto, de pivote a pivote)
+function drawLimb(g, bk, part, A, B, v, f, wf, span) {
+  const im = partImg(bk, part, v); if (!im) return; const m = CUERPOS[bk][part];
+  const dx = B[0] - A[0], dy = B[1] - A[1], len = Math.hypot(dx, dy) || 1;
+  const H = len / (span !== undefined ? span : ((part === 'torso' ? TORSO_BY : m.by) - m.py)), W = H * m.w / m.h * (wf || 1);
+  g.save(); g.translate(A[0], A[1]); g.rotate(Math.atan2(-dx, dy)); if (f < 0) g.scale(-1, 1);
+  g.drawImage(im, -m.px * W, -m.py * H, W, H); g.restore();
+}
+// Pieza colgada de un punto, con su pivote de arriba o centrada, a una altura H
+function drawAt(g, bk, part, x, y, ang, H, v, f, center, wf) {
+  const im = partImg(bk, part, v); if (!im) return; const m = CUERPOS[bk][part], W = H * m.w / m.h * (wf || 1);
+  g.save(); g.translate(x, y); g.rotate(ang); if (f < 0) g.scale(-1, 1);
+  if (center) g.drawImage(im, -W / 2, -H / 2, W, H); else g.drawImage(im, -m.px * W, -m.py * H, W, H);
+  g.restore();
+}
+function drawBoot(g, bk, ankle, a, f, v, H) {
+  const im = partImg(bk, 'boot', v); if (!im) return; const m = CUERPOS[bk].boot, W = H * m.w / m.h;
+  g.save(); g.translate(ankle[0], ankle[1]); g.scale(f, 1); g.rotate(-a * .5); g.drawImage(im, -m.px * W, -m.py * H, W, H); g.restore();
+}
 
 // ───────── Esqueleto, poses y dibujo de marionetas ─────────
 // Ángulos medidos desde la vertical hacia abajo; positivo = hacia donde mira la marioneta.
@@ -368,7 +487,7 @@ function mkPal(L) {
     apron: L.apron, stripe: L.stripe, sash: L.sash, cape: L.cape, eye: L.eye, cheek: L.cheek, peg: shade(L.wood, .55),
   };
 }
-for (const k in LOOKS) LOOKS[k].pal = mkPal(LOOKS[k]);
+for (const k in LOOKS) { LOOKS[k].pal = mkPal(LOOKS[k]); LOOKS[k].hk = k; LOOKS[k].bk = k; }
 const WHITE_PAL = (() => { const p = {}; for (const k in LOOKS.comparsa.pal) p[k] = '#fff3dc'; p.edge = '#e8d2b0'; p.eye = '#fff3dc'; return p; })();
 const BURN_PAL = (() => { const p = mkPal({ wood: '#3a2418', shirt: '#2a1a14', pants: '#22140e', boots: '#140a06', hatC: '#24160e', apron: '#3a2418', stripe: '#1a0e08', sash: '#3a2418', cape: '#140a06', eye: '#ff9a3a', cheek: '#5a2a18' }); return p; })();
 
@@ -403,10 +522,10 @@ function fk(b, p, f) {
   return o;
 }
 
-function stick(g, a, b, w, col, edge) {
+function stick(g, a, b, w, col, edge, tex) {
   g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]);
   g.strokeStyle = edge; g.lineWidth = w + 2.4; g.stroke();
-  g.strokeStyle = col; g.lineWidth = w; g.stroke();
+  g.strokeStyle = tex ? texFill(g, tex, col) : col; g.lineWidth = w; g.stroke();
 }
 function dot(g, p, r, col) { g.fillStyle = col; g.beginPath(); g.arc(p[0], p[1], r, 0, TAU); g.fill(); }
 function foot(g, k, a, f, len, h, col, edge) {
@@ -475,6 +594,11 @@ function drawHat(g, kind, r, pal, t, e) {
 function drawHead(g, k, b, pal, look, f, e) {
   const r = b.hr, a = k.ha * f + k.rot;
   g.save(); g.translate(k.hc[0], k.hc[1]); g.rotate(a); g.scale(f, 1);
+  const hs = headSprite(look, pal);
+  if (hs) {   // cara ilustrada: la cara ocupa lo mismo que la elipse de antes y el sombrero va incluido
+    const H = HEADART[look.hk], sc = (r * 2.16) / (H.fh * hs.height), w = hs.width * sc, h = hs.height * sc;
+    g.drawImage(hs, -H.cx * w, -H.cy * h, w, h); g.restore(); return;
+  }
   g.fillStyle = pal.wood; g.strokeStyle = pal.edge; g.lineWidth = 1.6;
   g.beginPath(); g.ellipse(0, 0, r * .96, r * 1.08, 0, 0, TAU); g.fill(); g.stroke();
   if (look.mask) {
@@ -494,7 +618,7 @@ function drawHead(g, k, b, pal, look, f, e) {
   g.restore();
 }
 
-function drawTorso(g, k, b, pal, look, f) {
+function drawTorso(g, k, b, pal, look, f, tc) {
   const [hx, hy] = k.hip, [nx, ny] = k.neck;
   const ux = nx - hx, uy = ny - hy, L = Math.hypot(ux, uy) || 1, ex = ux / L, ey = uy / L;
   const vx = -ey * f, vy = ex * f; // perpendicular hacia delante
@@ -502,11 +626,11 @@ function drawTorso(g, k, b, pal, look, f) {
   g.lineWidth = 1.6; g.strokeStyle = pal.shirtE || pal.edge;
   if (look.skirt) {
     const d = look.skirt === 2 ? .8 : .5;
-    g.fillStyle = pal.shirtD;
+    g.fillStyle = texFill(g, tc, pal.shirtD);
     g.beginPath(); g.moveTo(hx + vx * wt, hy + vy * wt); g.lineTo(hx - ex * L * d + vx * wt * 1.6, hy - ey * L * d + vy * wt * 1.6);
     g.lineTo(hx - ex * L * d - vx * wt * 1.6, hy - ey * L * d - vy * wt * 1.6); g.lineTo(hx - vx * wt, hy - vy * wt); g.closePath(); g.fill(); g.stroke();
   }
-  g.fillStyle = pal.shirt;
+  g.fillStyle = texFill(g, tc, pal.shirt);
   g.beginPath(); g.moveTo(hx + vx * wt, hy + vy * wt); g.quadraticCurveTo(hx + ux * .55 + vx * ws * 1.25, hy + uy * .55 + vy * ws * 1.25, nx + vx * ws * .8, ny + vy * ws * .8);
   g.lineTo(nx - vx * ws, ny - vy * ws); g.lineTo(hx - vx * wt, hy - vy * wt); g.closePath(); g.fill(); g.stroke();
   if (pal.stripe) { g.strokeStyle = pal.stripe; g.lineWidth = 2.4; for (let i = 1; i < 4; i++) { const t = i / 4; g.beginPath(); g.moveTo(hx + ux * t + vx * wt * 1.1, hy + uy * t + vy * wt * 1.1); g.lineTo(hx + ux * t - vx * wt, hy + uy * t - vy * wt); g.stroke(); } }
@@ -515,10 +639,23 @@ function drawTorso(g, k, b, pal, look, f) {
   g.strokeStyle = 'rgba(30,18,10,.75)'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(hx + ux * .14 + vx * wt * 1.05, hy + uy * .14 + vy * wt * 1.05); g.lineTo(hx + ux * .14 - vx * wt, hy + uy * .14 - vy * wt); g.stroke();
 }
 
+// Armas ilustradas (img/objetos): H = alto en unidades de juego y gp = dónde la empuña la mano (fracción desde arriba)
+const WART = { tijeras: { H: 34, gp: .76 }, tijerona: { H: 58, gp: .84 }, alabarda: { H: 106, gp: .7 }, mazo: { H: 54, gp: .88 }, vela: { H: 34, gp: .9 }, baston: { H: 96, gp: .86 } };
+function weaponArt(g, type, t) {   // dibuja el arma en el sistema de la mano (+y = hacia donde apunta); false si no hay imagen
+  const w = WART[type], im = w && ART.ok['o_' + type] ? ART.img['o_' + type] : null; if (!im) return false;
+  const m = OBJETOS[type], H = w.H, W = H * m.w / m.h;
+  g.save(); g.scale(1, -1); g.drawImage(im, -W / 2, -w.gp * H, W, H); g.restore();
+  if (type === 'vela') {   // el resplandor de la llama
+    const fl = 1 + Math.sin(t * .7) * .12, fy = H * (1 - w.gp) - 3, gl = g.createRadialGradient(0, fy, 1, 0, fy, 14 * fl);
+    gl.addColorStop(0, 'rgba(255,200,90,.5)'); gl.addColorStop(1, 'rgba(255,170,60,0)'); g.fillStyle = gl; g.fillRect(-16, fy - 16, 32, 32);
+  }
+  return true;
+}
 // Armas: el ángulo viene del pose (wp), medido desde abajo hacia delante
 function drawWeapon(g, type, hand, a, f, t, sc) {
   g.save(); g.translate(hand[0], hand[1]); g.scale(f, 1); g.rotate(-a); // tras esto +y = dirección del arma
   g.lineCap = 'round';
+  if (weaponArt(g, type, t)) { g.restore(); return; }
   switch (type) {
     case 'tijeras': case 'tijerona': {
       const L = type === 'tijerona' ? 44 : 24, op = .16 + Math.max(0, Math.sin(t * .3)) * .12;
@@ -630,6 +767,8 @@ function drawPuppet(g, e, X, Y, S, camX) {
   const b = e.body, look = e.look, f = e.facing;
   const pal = e.flash > 0 ? WHITE_PAL : (e.charT > 0 ? BURN_PAL : look.pal);
   const k = fk(b, e.pose, f); e.kin = k;
+  if (bodyReady(look.bk)) return drawPuppetArt(g, e, X, Y, S, camX, k, pal, look.bk);
+  const tw = pal === WHITE_PAL ? null : 'w', tc = pal === WHITE_PAL ? null : 'c';   // sin textura durante el destello
   // capa del titiritero (detrás)
   if (look.cape) {
     const nk = [X + k.neck[0] * S, Y + k.neck[1] * S];
@@ -642,19 +781,19 @@ function drawPuppet(g, e, X, Y, S, camX) {
   g.save(); g.translate(X + (e.shk || 0), Y); g.scale(S, S); g.lineCap = 'round'; g.lineJoin = 'round';
   const armB = e.hp[2].cut, legF = e.hp[3].cut;
   // brazo lejano
-  stick(g, k.sh, k.eB, b.wa, pal.shirtD, pal.shirtE || pal.edge);
-  stick(g, k.eB, k.hB, b.wa * .85, pal.woodD, pal.edge); dot(g, k.hB, b.wa * .62, pal.woodD); dot(g, k.eB, b.wa * .32, pal.peg);
+  stick(g, k.sh, k.eB, b.wa, pal.shirtD, pal.shirtE || pal.edge, tc);
+  stick(g, k.eB, k.hB, b.wa * .85, pal.woodD, pal.edge, tw); dot(g, k.hB, b.wa * .62, pal.woodD); dot(g, k.eB, b.wa * .32, pal.peg);
   // pierna lejana
-  stick(g, k.hip, k.kB, b.wl, pal.pantsD, pal.pantsE); stick(g, k.kB, k.fB, b.wl * .78, pal.woodD, pal.edge);
+  stick(g, k.hip, k.kB, b.wl, pal.pantsD, pal.pantsE, tc); stick(g, k.kB, k.fB, b.wl * .78, pal.woodD, pal.edge, tw);
   foot(g, k.fB, k.fBa, f, b.wl * 2.1, b.wl * .9, shade(pal.boots, .8), '#120a06'); dot(g, k.kB, b.wl * .3, pal.peg);
-  drawTorso(g, k, b, pal, look, f);
+  drawTorso(g, k, b, pal, look, f, tc);
   // pierna cercana
-  stick(g, k.hip, k.kF, b.wl, pal.pants, pal.pantsE); stick(g, k.kF, k.fF, b.wl * .78, pal.wood, pal.edge);
+  stick(g, k.hip, k.kF, b.wl, pal.pants, pal.pantsE, tc); stick(g, k.kF, k.fF, b.wl * .78, pal.wood, pal.edge, tw);
   foot(g, k.fF, k.fFa, f, b.wl * 2.1, b.wl * .9, pal.boots, '#120a06'); dot(g, k.kF, b.wl * .32, pal.peg); dot(g, k.hip, b.wl * .35, pal.peg);
   drawHead(g, k, b, pal, look, f, e);
   // brazo cercano y arma
-  stick(g, k.sh, k.eF, b.wa, pal.shirt, pal.shirtE || pal.edge);
-  stick(g, k.eF, k.hF, b.wa * .85, pal.wood, pal.edge); dot(g, k.eF, b.wa * .34, pal.peg); dot(g, k.sh, b.wa * .38, pal.peg);
+  stick(g, k.sh, k.eF, b.wa, pal.shirt, pal.shirtE || pal.edge, tc);
+  stick(g, k.eF, k.hF, b.wa * .85, pal.wood, pal.edge, tw); dot(g, k.eF, b.wa * .34, pal.peg); dot(g, k.sh, b.wa * .38, pal.peg);
   if (e.weapon && !e.hp[1].cut) drawWeapon(g, e.weapon.type, k.hF, k.wa, f, e.t, S);
   dot(g, k.hF, b.wa * .66, pal.wood);
   g.restore();
@@ -670,20 +809,79 @@ function drawPuppet(g, e, X, Y, S, camX) {
   return k;
 }
 
+// Marioneta dibujada con las piezas ilustradas (si falta alguna, drawPuppet usa el dibujo por código)
+function drawPuppetArt(g, e, X, Y, S, camX, k, pal, bk) {
+  const b = e.body, look = e.look, f = e.facing, v = pal === WHITE_PAL ? 'f' : pal === BURN_PAL ? 'b' : '', vd = v || 'd';
+  const M = CUERPOS[bk], acc = BODY_ACC[bk] || {}, has = p => !!M[p] && ART.ok['c_' + bk + '_' + p];
+  const tm = M.torso, tl = Math.hypot(k.neck[0] - k.hip[0], k.neck[1] - k.hip[1]) || 1, unit = tl / ((TORSO_BY - tm.py) * tm.h);   // unidades de juego por píxel de arte
+  const ang = Math.atan2(-(k.hip[0] - k.neck[0]), k.hip[1] - k.neck[1]);   // inclinación del torso
+  const nk = [X + k.neck[0] * S, Y + k.neck[1] * S];
+  const kind = a => acc[a] && has(a) ? acc[a] : null;
+  // capa (detrás de todo), con el vaivén de una cadena
+  if (kind('a1') === 'cape') {
+    const c = chainStep(e, nk, 6, 14 * S, 1.2), l = c[c.length - 1], sw = Math.atan2(-(l[0] - nk[0]), l[1] - nk[1]);
+    drawAt(g, bk, 'a1', nk[0] - f * 5 * S, nk[1], sw * .8, unit * M.a1.h * S, v, f);
+  }
+  g.save(); g.translate(X + (e.shk || 0), Y); g.scale(S, S);
+  // lado lejano: brazo y pierna
+  drawLimb(g, bk, 'uarm', k.sh, k.eB, vd, f); drawLimb(g, bk, 'farm', k.eB, k.hB, vd, f, 1, .82 - M.farm.py);
+  drawLimb(g, bk, 'thigh', k.hip, k.kB, vd, f); drawLimb(g, bk, 'shin', k.kB, k.fB, vd, f); drawBoot(g, bk, k.fB, k.fBa, f, vd, unit * M.boot.h * (b.ll / ((M.shin.by - M.shin.py) * M.shin.h * unit)));
+  // faldas (detrás del torso)
+  for (const a of ['a1', 'a2']) if (kind(a) === 'skirt') drawAt(g, bk, a, k.hip[0], k.hip[1] - 2, ang * .3, unit * M[a].h, v, f);
+  drawLimb(g, bk, 'torso', k.neck, k.hip, v, f);
+  // delantal, banda, cuello (sobre el torso)
+  for (const a of ['a1', 'a2']) {
+    const t = kind(a);
+    if (t === 'apron') drawAt(g, bk, a, k.neck[0] + (k.hip[0] - k.neck[0]) * .1, k.neck[1] + (k.hip[1] - k.neck[1]) * .1, ang, unit * M[a].h * .92, v, f);
+    else if (t === 'sash') drawAt(g, bk, a, (k.neck[0] + k.hip[0]) / 2, (k.neck[1] + k.hip[1]) / 2, ang, unit * M[a].h * .95, v, f, true);
+    else if (t === 'collar') drawAt(g, bk, a, k.neck[0], k.neck[1] + 1, 0, unit * M[a].h, v, f, true);
+  }
+  // pierna cercana
+  drawLimb(g, bk, 'thigh', k.hip, k.kF, v, f); drawLimb(g, bk, 'shin', k.kF, k.fF, v, f); drawBoot(g, bk, k.fF, k.fFa, f, v, unit * M.boot.h * (b.ll / ((M.shin.by - M.shin.py) * M.shin.h * unit)));
+  drawHead(g, k, b, pal, look, f, e);
+  // brazo cercano y arma
+  drawLimb(g, bk, 'uarm', k.sh, k.eF, v, f); drawLimb(g, bk, 'farm', k.eF, k.hF, v, f, 1, .82 - M.farm.py);
+  if (e.weapon && !e.hp[1].cut) drawWeapon(g, e.weapon.type, k.hF, k.wa, f, e.t, S);
+  g.restore();
+  // bufanda (delante, ondeando)
+  if (kind('a1') === 'scarf') {
+    const c = chainStep(e, nk, 5, 7 * S, .55), l = c[c.length - 1], sw = Math.atan2(-(l[0] - nk[0]), l[1] - nk[1]);
+    drawAt(g, bk, 'a1', nk[0], nk[1], sw * .9, unit * M.a1.h * S * .95, v, f);
+  }
+  return k;
+}
+
 // Muñeco desplomado (verlet): se dibuja como un montón de piezas
 function drawRag(g, e, camX) {
   const R = e.rag, pal = e.charT > 0 ? BURN_PAL : e.look.pal, b = e.body, s = e.sc * DS(e.z);
   const P = i => [R.p[i][0] - camX, GY(e.z) - R.p[i][1] * DS(e.z)];
   const [hip, neck, head, eF, hF, eB, hB, kF, fF, kB, fB] = R.p.map((_, i) => P(i));
   g.save(); g.lineCap = 'round';
-  const st = (a, c, w, col, ed) => stick(g, a, c, w * s, col, ed);
-  st(neck, eB, b.wa, pal.shirtD, pal.edge); st(eB, hB, b.wa * .85, pal.woodD, pal.edge);
-  st(hip, kB, b.wl, pal.pantsD, pal.edge); st(kB, fB, b.wl * .78, pal.woodD, pal.edge);
-  st(hip, neck, b.wt * 2, pal.shirt, pal.edge);
-  st(hip, kF, b.wl, pal.pants, pal.edge); st(kF, fF, b.wl * .78, pal.wood, pal.edge);
-  g.fillStyle = pal.wood; g.strokeStyle = pal.edge; g.lineWidth = 1.6;
-  g.beginPath(); g.ellipse(head[0], head[1], b.hr * s, b.hr * 1.08 * s, Math.atan2(head[1] - neck[1], head[0] - neck[0]) + Math.PI / 2, 0, TAU); g.fill(); g.stroke();
-  st(neck, eF, b.wa, pal.shirt, pal.edge); st(eF, hF, b.wa * .85, pal.wood, pal.edge);
+  const tw = e.charT > 0 ? null : 'w', tc = e.charT > 0 ? null : 'c', st = (a, c, w, col, ed, tx) => stick(g, a, c, w * s, col, ed, tx);
+  const bk = e.look.bk, art = bodyReady(bk), vr = pal === WHITE_PAL ? 'f' : pal === BURN_PAL ? 'b' : '', vdr = vr || 'd', fc = e.facing, Mm = art ? CUERPOS[bk] : null;
+  const unit = art ? Math.hypot(neck[0] - hip[0], neck[1] - hip[1]) / ((TORSO_BY - Mm.torso.py) * Mm.torso.h) : 0;   // escala del arte según el torso
+  const bootH = art ? unit * Mm.boot.h * (b.ll * s / ((Mm.shin.by - Mm.shin.py) * Mm.shin.h * unit)) : 0;
+  if (art) {
+    drawLimb(g, bk, 'uarm', neck, eB, vdr, fc); drawLimb(g, bk, 'farm', eB, hB, vdr, fc, 1, .82 - Mm.farm.py);
+    drawLimb(g, bk, 'thigh', hip, kB, vdr, fc); drawLimb(g, bk, 'shin', kB, fB, vdr, fc); drawBoot(g, bk, fB, 0, fc, vdr, bootH);
+    drawLimb(g, bk, 'torso', neck, hip, vr, fc);
+    drawLimb(g, bk, 'thigh', hip, kF, vr, fc); drawLimb(g, bk, 'shin', kF, fF, vr, fc); drawBoot(g, bk, fF, 0, fc, vr, bootH);
+  } else {
+    st(neck, eB, b.wa, pal.shirtD, pal.edge, tc); st(eB, hB, b.wa * .85, pal.woodD, pal.edge, tw);
+    st(hip, kB, b.wl, pal.pantsD, pal.edge, tc); st(kB, fB, b.wl * .78, pal.woodD, pal.edge, tw);
+    st(hip, neck, b.wt * 2, pal.shirt, pal.edge, tc);
+    st(hip, kF, b.wl, pal.pants, pal.edge, tc); st(kF, fF, b.wl * .78, pal.wood, pal.edge, tw);
+  }
+  const hsp = headSprite(e.look, pal), hang = Math.atan2(head[1] - neck[1], head[0] - neck[0]) + Math.PI / 2;
+  if (hsp) {
+    const H = HEADART[e.look.hk], sc = (b.hr * s * 2.16) / (H.fh * hsp.height), w = hsp.width * sc, h = hsp.height * sc;
+    g.save(); g.translate(head[0], head[1]); g.rotate(hang); g.drawImage(hsp, -H.cx * w, -H.cy * h, w, h); g.restore();
+  } else {
+    g.fillStyle = pal.wood; g.strokeStyle = pal.edge; g.lineWidth = 1.6;
+    g.beginPath(); g.ellipse(head[0], head[1], b.hr * s, b.hr * 1.08 * s, hang, 0, TAU); g.fill(); g.stroke();
+  }
+  if (art) { drawLimb(g, bk, 'uarm', neck, eF, vr, fc); drawLimb(g, bk, 'farm', eF, hF, vr, fc, 1, .82 - Mm.farm.py); }
+  else { st(neck, eF, b.wa, pal.shirt, pal.edge, tc); st(eF, hF, b.wa * .85, pal.wood, pal.edge, tw); }
   g.restore();
 }
 
@@ -761,6 +959,7 @@ const PLAYERS = [
 LOOKS.madre = Object.assign({}, LOOKS.costurera, { shirt: '#1e1820', apron: '#9b2b2e', hatC: '#9b2b2e', pants: '#1e1820', wood: '#e2c9a2' });
 LOOKS.mozoMayor = Object.assign({}, LOOKS.mozo, { shirt: '#3b2a1c', apron: '#2a1d14', hatC: '#a33a22', wood: '#9a6a40' });
 for (const k of ['madre', 'mozoMayor']) LOOKS[k].pal = mkPal(LOOKS[k]);
+LOOKS.madre.bk = 'madreTijera'; LOOKS.mozoMayor.bk = 'mozoMayor';
 
 const TYPES = {
   comparsa: { look: 'comparsa', sc: 1.15, hp: [30, 14, 14, 14, 14], spd: 1.55, atk: [['e_punch', 3], ['e_punch2', 1]], ring: 96, score: 100, stunMax: 36, art: 'la comparsa', fem: 1 },
@@ -789,7 +988,7 @@ const ACTS = [
     props: [['caja', 680, 90, 'carrete'], ['cesto', 1420, 30, null], ['caja', 1640, 104, 'tijeras'], ['cesto', 2330, 60, 'carrete'], ['caja', 3120, 80, 'mazo'], ['cesto', 3340, 24, 'ovillo']],
   },
   {
-    title: 'La Ciudad de Tela', num: 'ACTO II', theme: 'ciudad', len: 5000, tokens: 2, cd: 1.05, eDmg: 1, music: 'act',
+    title: 'La Ciudad de Tela', num: 'ACTO II', theme: 'ciudad', len: 5000, tokens: 2, cd: 1.05, eDmg: 1, music: 'act2',
     secs: [
       { x: 360, waves: [[['comparsa', 'R'], ['saltimbanqui', 'R', 30], ['comparsa', 'L', 60]], [['saltimbanqui', 'T'], ['costurera', 'R', 30]]] },
       { x: 1200, waves: [[['alabardero', 'R'], ['alabardero', 'L'], ['comparsa', 'T', 30]], [['saltimbanqui', 'T'], ['saltimbanqui', 'T', 30], ['comparsa', 'R', 40]]] },
@@ -800,7 +999,7 @@ const ACTS = [
     props: [['caja', 720, 96, 'carrete'], ['cesto', 1520, 20, 'mazo'], ['caja', 1830, 70, 'carrete'], ['cesto', 2600, 100, 'tijeras'], ['caja', 3500, 40, 'ovillo'], ['cesto', 3760, 90, 'carrete']],
   },
   {
-    title: 'El Castillo de Tramoya', num: 'ACTO III', theme: 'castillo', len: 5400, tokens: 2, cd: .8, eDmg: 1.05, music: 'act',
+    title: 'El Castillo de Tramoya', num: 'ACTO III', theme: 'castillo', len: 5400, tokens: 2, cd: .8, eDmg: 1.05, music: 'act3',
     secs: [
       { x: 360, waves: [[['mozo', 'R'], ['comparsa', 'L'], ['comparsa', 'T', 30]], [['alabardero', 'R'], ['saltimbanqui', 'T', 20], ['costurera', 'L', 40]]] },
       { x: 1250, waves: [[['saltimbanqui', 'R'], ['saltimbanqui', 'L'], ['costurera', 'T', 30]], [['mozo', 'R'], ['alabardero', 'T', 30], ['comparsa', 'L', 40]]] },
@@ -1769,7 +1968,10 @@ function ctrlPlayer(e) {
     const sp = (run ? 4.6 : PLAYER_T.spd) * lf;
     let vx = mx * sp, vz = mz * sp * .64;
     if (mx && mz) { vx *= .86; vz *= .86; }
+    if (run && mx && mx !== e.facing && Math.abs(e.vx) > 2.5) { fxDust(e.x, e.z, 5, 1); Snd.play('step', .8); }   // derrape al cambiar de sentido corriendo
     e.vx = vx; e.vz = vz; if (mx) e.facing = mx;
+    if (run && st !== 'run') fxDust(e.x - e.facing * 10, e.z, 3, .8);   // arranque de la carrera
+    else if (run && e.t % 9 === 0) fxDust(e.x - e.facing * 12, e.z, 1, .5);
     setMoveState(e, run ? 'run' : (mx || mz) ? 'walk' : 'idle');
     if (mx === e.facing && nArms(e) > 0) {
       const d = World.F.find(o => o.team === 1 && o.alive && o.st === 'dazed' && !o.T.noGrab && Math.abs(o.z - e.z) < 12 && (o.x - e.x) * e.facing > 4 && (o.x - e.x) * e.facing < 34 * e.sc);
@@ -2040,7 +2242,7 @@ const Game = {
     for (const p of this.players) if (p.alive) { p.atk = null; if (p.hold) { const h = p.hold; p.hold = null; h.heldBy = null; } setState(p, 'win'); p.vx = p.vz = 0; }
   },
   continueGame() {
-    this.credits--; this.st = 'play'; Music.start(this.locked && this.act.secs[this.secIdx].boss ? 'boss' : 'act');
+    this.credits--; this.st = 'play'; Music.start(this.locked && this.act.secs[this.secIdx].boss ? 'boss' : this.act.music);
     for (const p of this.players) { p.out = false; p.lives = 3; if (!p.alive) this.respawn(p); }
   },
   startDemo() {
@@ -2165,7 +2367,7 @@ function genScene(theme, len, seed) {
 let C = null;
 function prerender() {
   const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
-  C = {};
+  C = { bd: {} };
   // marco del proscenio
   const f = mk(W, H), g = f.getContext('2d');
   const curtainSide = (x0, w, dir) => {
@@ -2189,6 +2391,7 @@ function prerender() {
     g.fillStyle = '#ffe0a0'; g.beginPath(); g.ellipse(x, 501, 6.5, 2.6, 0, 0, TAU); g.fill();
   }
   g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(0, 508, W, 32);
+  if (ART.ok.marco) { g.clearRect(0, 0, W, H); g.drawImage(ART.img.marco, 0, 0, W, H); }   // marco ilustrado
   C.frame = f;
   // brillo de candilejas
   const gl = mk(W, 200), gg = gl.getContext('2d');
@@ -2208,6 +2411,11 @@ function prerender() {
   // degradados de suelo y cielos
   const ctx = document.createElement('canvas').getContext('2d');
   C.floor = ctx.createLinearGradient(0, 344, 0, 500); C.floor.addColorStop(0, '#24170e'); C.floor.addColorStop(.4, '#4a301c'); C.floor.addColorStop(1, '#7a5030');
+  if (ART.gray.w) {   // suelo con la veta ya mezclada: una sola imagen que se desplaza
+    C.floorTex = mk(W + 192, 146); const fg = C.floorTex.getContext('2d');
+    fg.save(); fg.translate(0, -354); fg.fillStyle = C.floor; fg.fillRect(0, 354, W + 192, 146);
+    fg.globalCompositeOperation = 'overlay'; fg.globalAlpha = .55; fg.scale(2, 2); fg.fillStyle = texFill(fg, 'w', '#808080'); fg.fillRect(0, 177, (W + 192) / 2, 73); fg.restore();
+  }
   C.sky = {};
   const sky = (name, stops) => { const gr = ctx.createLinearGradient(0, 30, 0, 360); stops.forEach(([o, c]) => gr.addColorStop(o, c)); C.sky[name] = gr; };
   sky('bosque', [[0, '#0f1f26'], [.6, '#24463f'], [1, '#3f6450']]);
@@ -2215,12 +2423,46 @@ function prerender() {
   sky('castillo', [[0, '#14111a'], [.6, '#24202c'], [1, '#33303c']]);
 }
 
+// Decorado ilustrado: se repite en espejo (sin costura) y se desplaza más despacio que el suelo
+function backdropCanvas(name) {   // el decorado ya ampliado y recortado, una sola vez
+  if (C.bd[name]) return C.bd[name];
+  const im = ART.img[name], base = 354 / im.naturalHeight, need = (W + 70) / (im.naturalWidth * base), z = Math.min(1.15, Math.max(1, Math.sqrt(need))), sx = Math.min(1.45, Math.max(1, need / z));
+  const h = 354 * z, tw = Math.ceil(im.naturalWidth * base * z * sx), c = document.createElement('canvas'); c.width = tw; c.height = 354;
+  c.getContext('2d').drawImage(im, 0, 354 - h, tw, h);   // anclado abajo: se recorta el cielo
+  return (C.bd[name] = c);
+}
+function drawBackdrop(g, name, off, alpha) {
+  // un solo decorado debe cubrir toda la pantalla (si no, se vería repetido a la vez); se repite en espejo, sin costura
+  const c = backdropCanvas(name), tw = c.width, per = tw * 2, o = ((off % per) + per) % per;
+  let i = Math.floor(o / tw), x = -(o - i * tw);
+  if (alpha !== undefined) g.globalAlpha = alpha;
+  for (; x < W; x += tw, i++) {
+    if (i & 1) { g.save(); g.translate(x + tw, 0); g.scale(-1, 1); g.drawImage(c, 0, 0); g.restore(); }
+    else g.drawImage(c, x, 0);
+  }
+  g.globalAlpha = 1;
+}
 function drawScene(g, camX) {
   const S = Game.scene, th = S.theme, t = Game.T;
   g.fillStyle = C.sky[th]; g.fillRect(0, 0, W, 360);
+  const bgOK = ART.ok['fondo_' + th];
+  if (bgOK) {
+    drawBackdrop(g, 'fondo_' + th, camX * .3);
+    if (th === 'castillo' && ART.ok.fondo_telar && camX > Game.actLen - W - 900) {   // al final, el telar desnudo del jefe
+      drawBackdrop(g, 'fondo_telar', camX * .3, clamp((camX - (Game.actLen - W - 900)) / 600, 0, 1));
+    }
+  }
   // textura de lienzo pintado
   g.globalAlpha = .05; g.fillStyle = '#000'; for (let y = 40; y < 360; y += 7) g.fillRect(0, y, W, 2); g.globalAlpha = 1;
-  if (th === 'bosque') {
+  if (bgOK) {
+    if (th === 'bosque') {   // la luna ya no está en el decorado (se vería repetida): se dibuja aquí, colgada de su hilo
+      const mx = 640 - camX * .05, my = 158 + Math.sin(t * .01) * 3;
+      g.strokeStyle = 'rgba(210,200,170,.6)'; g.lineWidth = 1; g.beginPath(); g.moveTo(mx, 40); g.lineTo(mx, my - 40); g.stroke();
+      const gl = g.createRadialGradient(mx, my, 30, mx, my, 120); gl.addColorStop(0, 'rgba(240,230,180,.22)'); gl.addColorStop(1, 'rgba(240,230,180,0)'); g.fillStyle = gl; g.fillRect(mx - 120, my - 120, 240, 240);
+      g.fillStyle = '#ece2bd'; g.beginPath(); g.arc(mx, my, 40, 0, TAU); g.fill();
+      g.fillStyle = 'rgba(160,150,110,.22)'; g.beginPath(); g.arc(mx - 13, my - 9, 9, 0, TAU); g.arc(mx + 15, my + 10, 6, 0, TAU); g.arc(mx + 5, my - 17, 5, 0, TAU); g.arc(mx - 4, my + 17, 4, 0, TAU); g.fill();
+    }
+  } else if (th === 'bosque') {
     for (const s of S.stars) { const x = ((s.x - camX * .04) % (W + 300) + W + 300) % (W + 300) - 150; g.fillStyle = 'rgba(240,230,190,.7)'; g.fillRect(x - s.s / 2, s.y, s.s, s.s); }
     const mx = 700 - camX * .05, my = 120 + Math.sin(t * .01) * 3;
     g.strokeStyle = 'rgba(200,190,160,.5)'; g.lineWidth = 1; g.beginPath(); g.moveTo(mx, 0); g.lineTo(mx, my - 40); g.stroke();
@@ -2312,6 +2554,7 @@ function drawScene(g, camX) {
   g.fillStyle = '#3a2a1a'; g.fillRect(0, 352, W, 2);
   // suelo de tablas
   g.fillStyle = C.floor; g.fillRect(0, 354, W, 146);
+  if (C.floorTex) g.drawImage(C.floorTex, -((camX * .95) % 192), 354);   // veta de la madera, que avanza con la cámara
   let y = 354, k = 0;
   while (y < 498) {
     const h = 8 + k * 1.3, f = .9 + (y - 354) / 146 * .14;
@@ -2382,6 +2625,18 @@ function render() {
   if (st === 'ending') drawEnding(g);
   if (st === 'demo' || Game.demo) { g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(W / 2 - 170, 470, 340, 24); g.fillStyle = '#f3dfb4'; g.font = `bold 15px ${SERIF}`; g.textAlign = 'center'; g.fillText('DEMOSTRACIÓN · pulsa una tecla', W / 2, 487); }
 }
+// Aplastamiento y estiramiento [x, y] de una marioneta, o null. Con «calma» se suaviza a la mitad.
+function squash(e) {
+  let x = 1, y = 1;
+  if (e.st === 'land') { const f = Math.max(0, 1 - e.t / 6); y = 1 - .16 * f; x = 1 + .12 * f; }
+  else if (e.y > .5 && e.st !== 'swung' && e.st !== 'thrown' && e.st !== 'fall' && e.st !== 'held') {
+    if (e.vy > 2) { const t = Math.min(.12, e.vy * .012); y = 1 + t; x = 1 - t * .7; }
+    else if (e.vy < -3) { const t = Math.min(.09, -e.vy * .009); y = 1 + t; x = 1 - t * .6; }
+  }
+  if (x === 1 && y === 1) return null;
+  if (Game.reduce) { x = 1 + (x - 1) * .5; y = 1 + (y - 1) * .5; }
+  return [x, y];
+}
 function drawFighter(g, e, camX) {
   if (e.st === 'dead') {
     if (e.deadT > 150 && e.kind !== 'p' && (e.deadT >> 2) % 2) return;
@@ -2399,8 +2654,11 @@ function drawFighter(g, e, camX) {
     const ca = Math.cos(a), sa = Math.sin(a);
     drawStrings(g, e, X, Y, sc2, k, camX, q => [px + (q[0] - px) * ca - (q[1] - py) * sa, py + (q[0] - px) * sa + (q[1] - py) * ca]);
   } else {
+    const sq = squash(e);   // aplastamiento al aterrizar y estiramiento al saltar, anclados a los pies
+    if (sq) { g.save(); g.translate(X, Y); g.scale(sq[0], sq[1]); g.translate(-X, -Y); }
     const k = drawPuppet(g, e, X, Y, s, camX);
     drawStrings(g, e, X, Y, s, k, camX);
+    if (sq) g.restore();
   }
   if (e.st === 'dazed') { for (let i = 0; i < 3; i++) { const a = e.t * .12 + i * TAU / 3; g.fillStyle = '#ffe9a0'; g.save(); g.translate(X + Math.cos(a) * 16 * s, Y - e.hh * DS(e.z) - 8 + Math.sin(a) * 5); g.rotate(a); g.fillRect(-3, -3, 6, 6); g.restore(); } }
   if (e.glint > 0 && e.kin) { const h = e.kin.hF; const gx = X + h[0] * s, gy = Y + h[1] * s, r = (10 - e.glint) * 2.2; g.strokeStyle = `rgba(255,250,220,${e.glint / 10})`; g.lineWidth = 2; g.beginPath(); g.moveTo(gx - r, gy); g.lineTo(gx + r, gy); g.moveTo(gx, gy - r); g.lineTo(gx, gy + r); g.stroke(); }
@@ -2421,7 +2679,9 @@ function drawCrucetaGone(g, e, camX) {
 function drawProp(g, p, camX) {
   const x = p.x - camX + (p.shk > 0 ? Math.sin(p.shk--) * 2 : 0), y = GY(p.z), s = DS(p.z);
   g.save(); g.translate(x, y); g.scale(s, s);
-  if (p.type === 'caja') {
+  const pim = ART.ok['o_' + p.type] ? ART.img['o_' + p.type] : null;
+  if (pim) { const w = { caja: 52, cesto: 46, tonel: 40 }[p.type] || 44, m = OBJETOS[p.type]; g.drawImage(pim, -w / 2, -w * m.h / m.w + 2, w, w * m.h / m.w); }
+  else if (p.type === 'caja') {
     g.fillStyle = '#7a5434'; g.strokeStyle = '#2e1c10'; g.lineWidth = 2; g.fillRect(-22, -38, 44, 38); g.strokeRect(-22, -38, 44, 38);
     g.beginPath(); g.moveTo(-22, -38); g.lineTo(22, 0); g.moveTo(22, -38); g.lineTo(-22, 0); g.stroke();
     g.fillStyle = '#b8403a'; g.fillRect(-14, -24, 28, 8);
@@ -2444,6 +2704,9 @@ function drawItem(g, it, camX) {
     const tt = it.fake === 'baston' ? 'baston' : it.type;
     g.save(); g.translate(x, y - 6 + bob); drawWeapon(g, tt, [0, 0], 90 * DEG + (tt === 'alabarda' ? 0 : .4), 1, Game.T, 1); g.restore();
     if ((Game.T >> 4) % 2) { g.strokeStyle = 'rgba(255,240,200,.5)'; g.lineWidth = 1; g.beginPath(); g.arc(x, y - 8, 20, 0, TAU); g.stroke(); }
+  } else if (ART.ok['o_' + it.type]) {
+    const m = OBJETOS[it.type], h = it.type === 'ovillo' ? 26 : 22, w = h * m.w / m.h;
+    g.drawImage(ART.img['o_' + it.type], x - w / 2, y - h + 2 + bob, w, h);
   } else {
     g.fillStyle = '#6a4a2a'; g.fillRect(x - 9, y - 18 + bob, 18, 4); g.fillRect(x - 9, y - 2 + bob, 18, 4);
     g.fillStyle = ITEM_COL[it.type]; g.fillRect(x - 7, y - 14 + bob, 14, it.type === 'ovillo' ? 13 : 12);
@@ -2760,6 +3023,7 @@ Snd.on = Save.d.sound;
 syncTools();
 
 // ───────── Arranque ─────────
+artLoad();
 prerender();
 Input.init();
 Touch.init();

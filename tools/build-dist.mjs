@@ -11,6 +11,7 @@ const dist = path.join(root, 'dist');
 fs.rmSync(dist, { recursive: true, force: true });
 fs.mkdirSync(dist);
 for (const f of FILES) fs.copyFileSync(path.join(root, f), path.join(dist, f));
+fs.cpSync(path.join(root, 'img'), path.join(dist, 'img'), { recursive: true });   // arte ilustrado (el juego funciona sin él)
 
 // Las etiquetas para compartir el enlace apuntan a GitHub Pages: fuera del paquete de itch.io.
 const htmlPath = path.join(dist, 'index.html');
@@ -28,5 +29,5 @@ fs.rmSync(zip, { force: true });
 execFileSync('zip', ['-q', '-9', '-r', zip, '.'], { cwd: dist });
 let total = 0;
 for (const f of fs.readdirSync(dist)) total += fs.statSync(path.join(dist, f)).size;
-console.log(`dist/: ${fs.readdirSync(dist).length} archivos, ${(total / 1024).toFixed(1)} KB`);
+console.log(`dist/: ${fs.readdirSync(dist).length} entradas, ${(total / 1024).toFixed(1)} KB`);
 console.log(`${name}: ${(fs.statSync(zip).size / 1024).toFixed(1)} KB`);
