@@ -1,4 +1,4 @@
-**Hilo Cortado** es un beat 'em up de avance lateral con marionetas de madera, para uno o dos jugadores. Los personajes no tienen sprites: son marionetas de piezas recortadas que cuelgan de una cruceta y caen de verdad cuando se les corta un hilo.
+**Hilo Cortado** es un beat 'em up de avance lateral con marionetas de madera, para uno o dos jugadores. Los personajes son marionetas articuladas hechas de piezas ilustradas que cuelgan de una cruceta y caen de verdad cuando se les corta un hilo.
 
 ## Los hilos
 Cada marioneta cuelga de cinco hilos: cabeza, dos brazos y dos piernas, y cada golpe gasta uno.

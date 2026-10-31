@@ -15,6 +15,9 @@ const http = require('http'), fs = require('fs'), path = require('path');
     await pg.goto(url + '?test=1'); await pg.waitForTimeout(500);
     const G = () => pg.evaluate(() => ({ idx: HC.Game.diffIdx, diff: HC.Game.diff, cred: HC.Game.credits, st: HC.Game.st }));
     check((await G()).idx === 1, 'dificultad inicial Normal');
+    await pg.waitForTimeout(2000);
+    check(await pg.evaluate(() => Object.keys(CUERPOS).length === 10 && Object.keys(CUERPOS).every(bodyReady)), 'las piezas ilustradas de los diez personajes cargan');
+    check(await pg.evaluate(() => Object.keys(ART.ok).length > 90 && Object.values(ART.ok).every(Boolean)), 'todo el arte ilustrado carga sin fallos');
     await pg.keyboard.down('ArrowLeft'); await pg.waitForTimeout(80); await pg.keyboard.up('ArrowLeft');
     // en TEST el bucle no corre: avanzamos fotogramas a mano
     await pg.evaluate(() => { HC.key('KeyA', true); HC.step(2); HC.key('KeyA', false); HC.step(2); });
